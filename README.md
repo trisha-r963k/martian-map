@@ -14,6 +14,17 @@ MarsWalk Navigator is a tactical web application built for the **NASA Space Apps
   - 8-direction A* pathfinding (`route.js`) avoiding steep blocked ground (`cost >= 9999`) and finding safest low-cost traversals.
   - Live metric computation: Distance in meters (with 1.414× diagonal weighting) and walking time in minutes.
   - Configurable walking speed (default 2 km/h) with live recalculation.
+- **Google-Maps-Style Floating UI (Task 3)**:
+  - Full-window map locked to Gale Crater bounds (`maxBoundsViscosity 1.0`, zero black margins).
+  - Smooth zoom (`zoomSnap 0.25`, `zoomDelta 0.5`) with deep zoom support (>= 4 levels in).
+  - Top-left directions card with Start/Destination coordinates, Swap button, and route telemetry.
+  - Top-right live cursor telemetry with coordinates and dynamic slope estimation formula.
+  - Bottom-left Google-style "Layers" popup with preset thumbnail tiles (Photo, Slope hazard, Both) and sliders.
+  - Bottom-right zoom and "Center on Start" action buttons.
+  - Calibrated Mars metric scale bar ($59,200\text{ m/deg}$) and collapsible slope legend.
+  - Draggable Start/Destination markers with instant route recalculation.
+  - Animated dual-layer route line: white casing + bright cyan animated dash with endpoint ETA label.
+  - Mobile bottom sheet mode for screens under 700px.
 - **Mobile Responsive**: Scaled and touch-optimized for tablet and mobile phone screens.
 
 ## Data & Credits

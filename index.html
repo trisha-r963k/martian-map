@@ -12,22 +12,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- HUD Top Bar / Header -->
+  <!-- Slim Top Bar -->
   <header class="hud-header">
     <div class="hud-brand">
       <div class="hud-indicator active" aria-hidden="true"></div>
       <div class="brand-text">
         <h1 class="hud-title">MARSWALK NAVIGATOR</h1>
-        <span class="hud-subtitle">EVA TACTICAL SURFACE DISPLAY // GALE CRATER</span>
+        <span class="hud-subtitle">GALE CRATER // EVA SURFACE MAP</span>
       </div>
     </div>
     
-    <!-- Telemetry Readouts -->
+    <!-- Slim Header Telemetry -->
     <div class="hud-telemetry">
-      <div class="telemetry-item">
-        <span class="telemetry-label">REGION</span>
-        <span class="telemetry-val">GALE [4.8°S, 137.35°E]</span>
-      </div>
       <div class="telemetry-item">
         <span class="telemetry-label">GRID</span>
         <span class="telemetry-val" id="telemetry-grid">148 × 148 (4.0m)</span>
@@ -36,10 +32,6 @@
         <span class="telemetry-label">ZOOM</span>
         <span class="telemetry-val" id="telemetry-zoom">--</span>
       </div>
-      <div class="telemetry-item">
-        <span class="telemetry-label">CURSOR COORDS</span>
-        <span class="telemetry-val" id="telemetry-cursor">-- , --</span>
-      </div>
     </div>
   </header>
 
@@ -47,65 +39,203 @@
   <main class="map-viewport">
     <div id="map" role="region" aria-label="Martian Surface Map"></div>
 
-    <!-- Fallback / Server Warning Alert (shown only if fetch fails, e.g. opened directly via file://) -->
+    <!-- Fallback / Server Warning Alert -->
     <div id="connection-error" class="hud-alert hidden">
       <div class="alert-header">⚠ DATA LINK OFFLINE</div>
       <p>Unable to load <code>data/grid.json</code> directly. When testing locally, run a local web server (e.g., <code>python -m http.server 8000</code> or <code>npx serve</code>) because browsers block <code>fetch()</code> requests on the <code>file://</code> protocol.</p>
     </div>
 
-    <!-- Floating HUD Interface Controls -->
-    <div class="hud-panels">
-      
-      <!-- Panel 1: Layer Controller (Checkbox + Opacity Slider for each layer) -->
-      <section class="hud-card layer-panel" aria-labelledby="layer-panel-title">
-        <div class="card-header">
-          <span class="card-badge">SYS.01</span>
-          <h2 id="layer-panel-title" class="card-title">SURFACE LAYERS</h2>
+    <!-- ====================================================================
+         FLOATING HUD CARDS (Google Maps Style)
+         ==================================================================== -->
+
+    <!-- 1. Top-Left: Rounded Directions Card -->
+    <section class="floating-card directions-card" id="directions-card" aria-label="Route Directions">
+      <div class="directions-header">
+        <div class="directions-title-group">
+          <span class="card-badge">EVA.NAV</span>
+          <span class="directions-title">DIRECTIONS</span>
         </div>
-        
-        <div class="card-body">
-          <!-- Layer 1: Orthophoto (Base surface photo) -->
-          <div class="layer-control">
-            <div class="layer-toggle-row">
+        <div id="route-status" class="route-status-pill">
+          Click map or drag pins to set route
+        </div>
+      </div>
+
+      <div class="directions-body">
+        <div class="waypoints-container">
+          <div class="waypoints-track" aria-hidden="true">
+            <span class="track-dot start-dot"></span>
+            <span class="track-line"></span>
+            <span class="track-dot end-dot"></span>
+          </div>
+
+          <div class="waypoints-inputs">
+            <!-- Start Point Row -->
+            <div class="waypoint-row" id="row-start">
+              <span class="waypoint-tag">Start</span>
+              <span class="waypoint-val" id="route-start-coord">Click map to set</span>
+            </div>
+
+            <!-- Destination Point Row -->
+            <div class="waypoint-row" id="row-end">
+              <span class="waypoint-tag">Destination</span>
+              <span class="waypoint-val" id="route-end-coord">Click map to set</span>
+            </div>
+          </div>
+
+          <!-- Swap Waypoints Button -->
+          <button type="button" id="btn-swap-route" class="btn-swap" title="Swap Start and Destination" aria-label="Swap Start and Destination">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Route Metrics Summary (visible once route is calculated) -->
+        <div class="route-metrics-bar" id="route-metrics-bar">
+          <div class="metric-block">
+            <span class="metric-label">DISTANCE</span>
+            <span class="metric-num" id="route-distance">--</span>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="metric-block">
+            <span class="metric-label">WALK TIME</span>
+            <span class="metric-num highlight" id="route-time">--</span>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="metric-block speed-block">
+            <label for="speed-input" class="metric-label">SPEED</label>
+            <div class="speed-input-wrap">
+              <input type="number" id="speed-input" min="0.1" max="10" step="0.5" value="2" class="speed-num-input">
+              <span class="speed-unit">km/h</span>
+            </div>
+          </div>
+        </div>
+        <div class="speed-disclaimer-note">* assumption, not an official value</div>
+
+        <!-- Actions -->
+        <div class="directions-actions">
+          <button type="button" id="btn-clear-route" class="hud-btn hud-btn-clear">
+            CLEAR ROUTE
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Top-Right: Cursor Telemetry Card (Coords + Slope) -->
+    <section class="floating-card cursor-card" id="cursor-card" aria-label="Cursor Telemetry">
+      <div class="cursor-row">
+        <span class="cursor-icon">⌖</span>
+        <span class="cursor-coords" id="telemetry-cursor">-- , --</span>
+      </div>
+      <div class="cursor-slope-row">
+        <span class="slope-indicator" aria-hidden="true"></span>
+        <span class="cursor-slope" id="cursor-slope">Slope: --</span>
+      </div>
+    </section>
+
+    <!-- 3. Bottom-Left: Google-style "Layers" Button & Popup -->
+    <div class="layers-control-container" id="layers-control-container">
+      <!-- Popup Dialog -->
+      <div class="layers-popup hidden" id="layers-popup" role="dialog" aria-label="Surface Layers Control">
+        <div class="layers-popup-header">
+          <span class="card-badge">SYS.01</span>
+          <span class="popup-title">SURFACE LAYERS</span>
+        </div>
+
+        <!-- Preset Thumbnail Tiles -->
+        <div class="layer-tiles">
+          <button type="button" class="layer-tile" id="tile-photo" title="HiRISE Orthophoto Only">
+            <div class="tile-preview photo-preview"></div>
+            <span class="tile-label">Photo</span>
+          </button>
+          <button type="button" class="layer-tile" id="tile-hazard" title="Slope Hazard Only">
+            <div class="tile-preview hazard-preview"></div>
+            <span class="tile-label">Slope hazard</span>
+          </button>
+          <button type="button" class="layer-tile active" id="tile-both" title="Photo & Hazard Combined">
+            <div class="tile-preview both-preview"></div>
+            <span class="tile-label">Both</span>
+          </button>
+        </div>
+
+        <!-- Opacity Sliders & Toggles -->
+        <div class="layers-fine-tune">
+          <!-- Ortho Layer -->
+          <div class="layer-tune-row">
+            <div class="tune-label-row">
               <label class="custom-checkbox">
                 <input type="checkbox" id="toggle-ortho" checked>
                 <span class="checkmark"></span>
-                <span class="layer-name">HiRISE Orthophoto</span>
+                <span class="tune-name">HiRISE Photo</span>
               </label>
-              <span class="opacity-readout" id="readout-ortho">100%</span>
+              <span class="tune-readout" id="readout-ortho">100%</span>
             </div>
-            <div class="slider-wrapper">
-              <label for="opacity-ortho" class="visually-hidden">HiRISE Orthophoto Opacity</label>
-              <input type="range" id="opacity-ortho" min="0" max="1" step="0.05" value="1.0" class="hud-slider">
-            </div>
+            <input type="range" id="opacity-ortho" min="0" max="1" step="0.05" value="1.0" class="hud-slider" aria-label="HiRISE Photo Opacity">
           </div>
 
-          <!-- Layer 2: Hazard Overlay (Transparent 148x148 slope grid) -->
-          <div class="layer-control">
-            <div class="layer-toggle-row">
+          <!-- Hazard Layer -->
+          <div class="layer-tune-row">
+            <div class="tune-label-row">
               <label class="custom-checkbox">
                 <input type="checkbox" id="toggle-hazard" checked>
                 <span class="checkmark"></span>
-                <span class="layer-name">Slope Hazard Overlay</span>
+                <span class="tune-name">Slope Hazard</span>
               </label>
-              <span class="opacity-readout" id="readout-hazard">80%</span>
+              <span class="tune-readout" id="readout-hazard">80%</span>
             </div>
-            <div class="slider-wrapper">
-              <label for="opacity-hazard" class="visually-hidden">Slope Hazard Opacity</label>
-              <input type="range" id="opacity-hazard" min="0" max="1" step="0.05" value="0.80" class="hud-slider">
-            </div>
+            <input type="range" id="opacity-hazard" min="0" max="1" step="0.05" value="0.80" class="hud-slider" aria-label="Slope Hazard Opacity">
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- Panel 2: Slope Classification Legend -->
-      <section class="hud-card legend-panel" aria-labelledby="legend-panel-title">
-        <div class="card-header">
-          <span class="card-badge">SYS.02</span>
-          <h2 id="legend-panel-title" class="card-title">SLOPE HAZARD LEGEND</h2>
-        </div>
-        
-        <div class="card-body">
+      <!-- Trigger Button -->
+      <button type="button" class="btn-layers-toggle" id="btn-layers-toggle" aria-expanded="false" aria-controls="layers-popup" title="Toggle Surface Layers">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+          <polyline points="2 17 12 22 22 17"/>
+          <polyline points="2 12 12 17 22 12"/>
+        </svg>
+        <span class="btn-layers-text">Layers</span>
+      </button>
+    </div>
+
+    <!-- 4. Bottom-Right: Google-style Zoom & Center Controls -->
+    <div class="map-action-controls" id="map-action-controls">
+      <button type="button" class="action-btn btn-center-start" id="btn-center-start" title="Center on Start Marker" aria-label="Center on Start">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="7"/>
+          <line x1="12" y1="1" x2="12" y2="5"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="1" y1="12" x2="5" y2="12"/>
+          <line x1="19" y1="12" x2="23" y2="12"/>
+        </svg>
+      </button>
+      <div class="zoom-btn-group">
+        <button type="button" class="action-btn btn-zoom" id="btn-zoom-in" title="Zoom In" aria-label="Zoom in">+</button>
+        <button type="button" class="action-btn btn-zoom" id="btn-zoom-out" title="Zoom Out" aria-label="Zoom out">−</button>
+      </div>
+    </div>
+
+    <!-- 5. Bottom: Scale Bar & Collapsible Legend -->
+    <div class="bottom-hud-dock">
+      <!-- Mars Metric Scale Bar (calculated in metres for EPSG:4326) -->
+      <div class="mars-scale-bar" id="mars-scale-bar" aria-label="Map Scale">
+        <div class="scale-ruler" id="scale-ruler"></div>
+        <span class="scale-label" id="scale-label">100 m</span>
+      </div>
+
+      <!-- Collapsible Legend Card -->
+      <section class="floating-card legend-card collapsed" id="legend-card" aria-label="Slope Legend">
+        <button type="button" class="legend-card-header" id="btn-toggle-legend" aria-expanded="false" aria-controls="legend-card-body">
+          <div class="legend-header-left">
+            <span class="card-badge">SYS.02</span>
+            <span id="legend-panel-title" class="legend-title">SLOPE HAZARD LEGEND</span>
+          </div>
+          <span class="legend-chevron" aria-hidden="true">▾</span>
+        </button>
+
+        <div class="legend-card-body" id="legend-card-body">
           <div class="legend-items">
             <!-- Caution Item (Yellow) -->
             <div class="legend-item caution">
@@ -127,57 +257,8 @@
           </div>
         </div>
       </section>
-
-      <!-- Panel 3: Route Planner (Task 2) -->
-      <section class="hud-card route-panel" aria-labelledby="route-panel-title">
-        <div class="card-header">
-          <span class="card-badge">SYS.03</span>
-          <h2 id="route-panel-title" class="card-title">ROUTE PLANNER</h2>
-        </div>
-        
-        <div class="card-body">
-          <!-- Status / Instructions / Warnings -->
-          <div id="route-status" class="route-status">
-            Click map to set <span class="badge-start">START</span> point.
-          </div>
-
-          <!-- Route Readouts -->
-          <div class="route-telemetry">
-            <div class="route-telemetry-row">
-              <span class="route-label">START:</span>
-              <span class="route-val" id="route-start-coord">--</span>
-            </div>
-            <div class="route-telemetry-row">
-              <span class="route-label">END:</span>
-              <span class="route-val" id="route-end-coord">--</span>
-            </div>
-            <div class="route-telemetry-row">
-              <span class="route-label">DISTANCE:</span>
-              <span class="route-val highlight" id="route-distance">--</span>
-            </div>
-            <div class="route-telemetry-row">
-              <span class="route-label">WALK TIME:</span>
-              <span class="route-val highlight" id="route-time">--</span>
-            </div>
-          </div>
-
-          <!-- Walking Speed Input -->
-          <div class="speed-control-group">
-            <div class="speed-row">
-              <label for="speed-input" class="speed-label">WALKING SPEED (km/h):</label>
-              <input type="number" id="speed-input" min="0.1" max="10" step="0.5" value="2" class="hud-number-input">
-            </div>
-            <span class="speed-note">* assumption, not an official value</span>
-          </div>
-
-          <!-- Route Clear Button -->
-          <button type="button" id="btn-clear-route" class="hud-btn hud-btn-clear">
-            CLEAR ROUTE
-          </button>
-        </div>
-      </section>
-
     </div>
+
   </main>
 
   <!-- HUD Footer with Required Credits -->
