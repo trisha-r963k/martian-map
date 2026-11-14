@@ -123,8 +123,57 @@
           <!-- Assumption Disclaimer -->
           <div class="legend-disclaimer">
             <span class="disclaimer-icon">ℹ</span>
-            <p>Note: These slope limits are mission safety assumptions for planetary surface traversal.</p>
+            <p>These limits are our own assumptions, not official NASA values.</p>
           </div>
+        </div>
+      </section>
+
+      <!-- Panel 3: Route Planner (Task 2) -->
+      <section class="hud-card route-panel" aria-labelledby="route-panel-title">
+        <div class="card-header">
+          <span class="card-badge">SYS.03</span>
+          <h2 id="route-panel-title" class="card-title">ROUTE PLANNER</h2>
+        </div>
+        
+        <div class="card-body">
+          <!-- Status / Instructions / Warnings -->
+          <div id="route-status" class="route-status">
+            Click map to set <span class="badge-start">START</span> point.
+          </div>
+
+          <!-- Route Readouts -->
+          <div class="route-telemetry">
+            <div class="route-telemetry-row">
+              <span class="route-label">START:</span>
+              <span class="route-val" id="route-start-coord">--</span>
+            </div>
+            <div class="route-telemetry-row">
+              <span class="route-label">END:</span>
+              <span class="route-val" id="route-end-coord">--</span>
+            </div>
+            <div class="route-telemetry-row">
+              <span class="route-label">DISTANCE:</span>
+              <span class="route-val highlight" id="route-distance">--</span>
+            </div>
+            <div class="route-telemetry-row">
+              <span class="route-label">WALK TIME:</span>
+              <span class="route-val highlight" id="route-time">--</span>
+            </div>
+          </div>
+
+          <!-- Walking Speed Input -->
+          <div class="speed-control-group">
+            <div class="speed-row">
+              <label for="speed-input" class="speed-label">WALKING SPEED (km/h):</label>
+              <input type="number" id="speed-input" min="0.1" max="10" step="0.5" value="2" class="hud-number-input">
+            </div>
+            <span class="speed-note">* assumption, not an official value</span>
+          </div>
+
+          <!-- Route Clear Button -->
+          <button type="button" id="btn-clear-route" class="hud-btn hud-btn-clear">
+            CLEAR ROUTE
+          </button>
         </div>
       </section>
 
@@ -143,6 +192,9 @@
 
   <!-- Leaflet 1.9.4 JS from cdnjs -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+  <!-- Route calculation engine (A* pathfinding) -->
+  <script src="route.js"></script>
 
   <!-- App script -->
   <script src="app.js"></script>

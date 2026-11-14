@@ -203,9 +203,24 @@ img.hazard-layer,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 320px;
+  max-width: 330px;
   width: calc(100% - 28px);
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  padding-right: 4px;
   pointer-events: none; /* Allows panning map behind gaps */
+}
+
+/* Sleek HUD Scrollbar */
+.hud-panels::-webkit-scrollbar {
+  width: 4px;
+}
+.hud-panels::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.hud-panels::-webkit-scrollbar-thumb {
+  background: var(--accent-cyan-dim);
+  border-radius: 2px;
 }
 
 .hud-card {
@@ -456,6 +471,208 @@ img.hazard-layer,
   font-size: 0.78rem;
   font-weight: 700;
   flex-shrink: 0;
+}
+
+/* --- Route Planner Panel (Task 2) --- */
+.route-panel {
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+.route-status {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  padding: 8px 10px;
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: 10px;
+  color: var(--text-main);
+  transition: all 0.25s ease;
+}
+
+.route-status.warning {
+  background: rgba(255, 51, 85, 0.12);
+  border-color: rgba(255, 51, 85, 0.5);
+  color: #ff99aa;
+}
+
+.route-status.success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #a7f3d0;
+}
+
+.badge-start {
+  color: #10b981;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.badge-end {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.route-telemetry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-control);
+  padding: 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 10px;
+}
+
+.route-telemetry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+}
+
+.route-label {
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+}
+
+.route-val {
+  font-family: var(--font-mono);
+  color: var(--text-main);
+  font-size: 0.72rem;
+}
+
+.route-val.highlight {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* Speed Control Group */
+.speed-control-group {
+  margin-bottom: 10px;
+  background: var(--bg-control);
+  padding: 8px 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.speed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.speed-label {
+  font-size: 0.72rem;
+  color: var(--text-main);
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.hud-number-input {
+  width: 68px;
+  background: rgba(5, 10, 18, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: var(--border-radius-sm);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 6px;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hud-number-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan-glow);
+}
+
+.speed-note {
+  display: block;
+  font-size: 0.63rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* HUD Clear Button */
+.hud-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: var(--border-radius-sm);
+  color: var(--accent-cyan);
+  font-family: var(--font-hud);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.hud-btn:hover {
+  background: rgba(0, 240, 255, 0.25);
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--accent-cyan-dim);
+}
+
+.hud-btn:active {
+  transform: translateY(1px);
+}
+
+/* --- Map Route Markers --- */
+.hud-marker-start, .hud-marker-end {
+  background: transparent;
+  border: none;
+}
+
+.marker-pin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #060b14;
+  position: relative;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.marker-pin.start-pin {
+  background-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.9);
+}
+
+.marker-pin.end-pin {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 12px var(--accent-cyan-glow);
+}
+
+.marker-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(6, 11, 20, 0.9);
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* --- Connection / Offline Alert --- */

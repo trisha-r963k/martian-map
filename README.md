@@ -9,6 +9,11 @@ MarsWalk Navigator is a tactical web application built for the **NASA Space Apps
   - 🟡 **Caution**: Slope above 12°
   - 🔴 **Hazard**: Slope above 20°
 - **Tactical Space HUD Interface**: Tablet-inspired dark sci-fi interface with telemetry readouts (coordinates, zoom level, resolution), layer toggles, and opacity blending sliders.
+- **A* EVA Route Planner (Task 2)**: 
+  - Interactive map clicking: 1st click = START (green pin), 2nd click = END (cyan pin), 3rd click clears and resets.
+  - 8-direction A* pathfinding (`route.js`) avoiding steep blocked ground (`cost >= 9999`) and finding safest low-cost traversals.
+  - Live metric computation: Distance in meters (with 1.414× diagonal weighting) and walking time in minutes.
+  - Configurable walking speed (default 2 km/h) with live recalculation.
 - **Mobile Responsive**: Scaled and touch-optimized for tablet and mobile phone screens.
 
 ## Data & Credits
