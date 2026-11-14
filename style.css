@@ -1,0 +1,629 @@
+/* ==========================================================================
+   MarsWalk Navigator - Tactical EVA Space HUD Styles
+   Theme: Dark tablet-like space interface, mobile-responsive
+   ========================================================================== */
+
+/* --- Custom Properties & Palette --- */
+:root {
+  --bg-space: #070a12;
+  --bg-hud: rgba(11, 18, 30, 0.88);
+  --bg-hud-header: rgba(8, 14, 24, 0.94);
+  --bg-card: rgba(14, 23, 40, 0.85);
+  --bg-control: rgba(20, 32, 54, 0.6);
+
+  --accent-cyan: #00f0ff;
+  --accent-cyan-dim: rgba(0, 240, 255, 0.25);
+  --accent-cyan-glow: rgba(0, 240, 255, 0.45);
+  
+  --color-caution: #ffd166;
+  --color-hazard: #ff3355;
+  --color-hazard-glow: rgba(255, 51, 85, 0.4);
+
+  --text-main: #e2e8f0;
+  --text-dim: #8ba1b8;
+  --text-highlight: #ffffff;
+
+  --border-hud: 1px solid rgba(0, 240, 255, 0.22);
+  --border-hud-active: 1px solid rgba(0, 240, 255, 0.6);
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+
+  --font-hud: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
+}
+
+/* --- Global Reset & Box Sizing --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-space);
+  color: var(--text-main);
+  font-family: var(--font-hud);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Screen-reader utility */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* --- Top Header (Tablet HUD Status Bar) --- */
+.hud-header {
+  height: 52px;
+  flex-shrink: 0;
+  background: var(--bg-hud-header);
+  border-bottom: var(--border-hud);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1000;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+
+.hud-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan);
+  animation: pulse-hud 2.5s infinite ease-in-out;
+}
+
+@keyframes pulse-hud {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.hud-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-highlight);
+  text-shadow: 0 0 8px var(--accent-cyan-dim);
+}
+
+.hud-subtitle {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+}
+
+/* Telemetry Stats in Header */
+.hud-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-mono);
+}
+
+.telemetry-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.72rem;
+}
+
+.telemetry-label {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+
+.telemetry-val {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+/* --- Main Map Viewport --- */
+.map-viewport {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #04060c;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  background-color: #04060c;
+}
+
+/* --- Hazard Overlay Pixelation (Requirement 3) --- */
+.hazard-layer,
+img.hazard-layer,
+.leaflet-image-layer.hazard-layer {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Custom styling for Leaflet controls */
+.leaflet-bar {
+  border: var(--border-hud) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
+  border-radius: var(--border-radius-sm) !important;
+  overflow: hidden;
+}
+
+.leaflet-bar a {
+  background-color: var(--bg-card) !important;
+  color: var(--accent-cyan) !important;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.15) !important;
+  transition: all 0.2s ease;
+}
+
+.leaflet-bar a:hover {
+  background-color: rgba(0, 240, 255, 0.18) !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px var(--accent-cyan-dim);
+}
+
+/* --- Floating HUD Control Panels --- */
+.hud-panels {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 320px;
+  width: calc(100% - 28px);
+  pointer-events: none; /* Allows panning map behind gaps */
+}
+
+.hud-card {
+  pointer-events: auto; /* Restores clicks inside panel cards */
+  background: var(--bg-hud);
+  border: var(--border-hud);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), inset 0 0 1px rgba(0, 240, 255, 0.3);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow: hidden;
+  transition: border-color 0.25s ease;
+}
+
+.hud-card:hover {
+  border-color: rgba(0, 240, 255, 0.45);
+}
+
+.card-header {
+  background: rgba(0, 240, 255, 0.08);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-badge {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  background: rgba(0, 240, 255, 0.18);
+  color: var(--accent-cyan);
+  padding: 2px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.card-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-highlight);
+  text-transform: uppercase;
+}
+
+.card-body {
+  padding: 12px;
+}
+
+/* --- Layer Control Items --- */
+.layer-control {
+  background: var(--bg-control);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius-sm);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.layer-control:last-child {
+  margin-bottom: 0;
+}
+
+.layer-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+/* Custom Tactical Checkbox */
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.custom-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.checkmark {
+  width: 18px;
+  height: 18px;
+  background-color: rgba(10, 16, 26, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.custom-checkbox input:checked ~ .checkmark {
+  background-color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan-glow);
+}
+
+.custom-checkbox input:checked ~ .checkmark::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 8px;
+  border: solid #040810;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-bottom: 2px;
+}
+
+.layer-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.03em;
+}
+
+.opacity-readout {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-cyan);
+  min-width: 38px;
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Slider Design */
+.slider-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.hud-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 240, 255, 0.15);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.hud-slider:hover {
+  background: rgba(0, 240, 255, 0.25);
+}
+
+/* WebKit Slider Thumb */
+.hud-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-cyan);
+  border: 2px solid #060b14;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent-cyan-glow);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.hud-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: #ffffff;
+}
+
+/* Firefox Slider Thumb */
+.hud-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-cyan);
+  border: 2px solid #060b14;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent-cyan-glow);
+  transition: transform 0.15s ease;
+}
+
+.hud-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* --- Slope Classification Legend --- */
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border-radius: var(--border-radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.caution-swatch {
+  background-color: var(--color-caution);
+  box-shadow: 0 0 6px rgba(255, 209, 102, 0.6);
+}
+
+.hazard-swatch {
+  background-color: var(--color-hazard);
+  box-shadow: 0 0 6px var(--color-hazard-glow);
+}
+
+.legend-text {
+  color: var(--text-main);
+}
+
+.legend-text .val {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #fff;
+}
+
+.legend-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: 8px;
+}
+
+.disclaimer-icon {
+  color: var(--accent-cyan);
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* --- Connection / Offline Alert --- */
+.hud-alert {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2000;
+  background: rgba(20, 8, 12, 0.95);
+  border: 1px solid #ff3355;
+  box-shadow: 0 0 24px rgba(255, 51, 85, 0.4);
+  border-radius: var(--border-radius-md);
+  padding: 20px;
+  max-width: 440px;
+  color: #fce7f3;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.hud-alert.hidden {
+  display: none;
+}
+
+.alert-header {
+  font-weight: 700;
+  color: #ff3355;
+  letter-spacing: 0.08em;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.hud-alert code {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+/* --- HUD Footer (Required Credits) --- */
+.hud-footer {
+  height: 38px;
+  flex-shrink: 0;
+  background: var(--bg-hud-header);
+  border-top: var(--border-hud);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  gap: 12px;
+}
+
+.crs-tag {
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  font-size: 0.64rem;
+  white-space: nowrap;
+}
+
+.footer-credits {
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Responsive Adaptations (Tablet & Mobile Phone HUD)
+   ========================================================================== */
+
+/* Mobile Phones (screen width <= 640px) */
+@media (max-width: 640px) {
+  .hud-header {
+    height: auto;
+    padding: 8px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .hud-telemetry {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.65rem;
+  }
+
+  .telemetry-item {
+    align-items: flex-start;
+  }
+
+  .telemetry-item:last-child {
+    display: none; /* Hide cursor coordinates on touch phones to save space */
+  }
+
+  .hud-panels {
+    top: auto;
+    bottom: 46px; /* Sits above footer */
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .hud-card {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .card-body {
+    padding: 8px;
+  }
+
+  .layer-control {
+    padding: 6px;
+    margin-bottom: 6px;
+  }
+
+  .layer-name {
+    font-size: 0.72rem;
+  }
+
+  .hud-slider {
+    height: 8px; /* Slightly thicker for finger touch */
+  }
+
+  .hud-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .hud-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .legend-item {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+  }
+
+  .legend-disclaimer {
+    font-size: 0.62rem;
+    padding-top: 4px;
+  }
+
+  .hud-footer {
+    height: auto;
+    padding: 6px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .footer-credits {
+    text-align: left;
+    white-space: normal;
+    font-size: 0.62rem;
+    line-height: 1.25;
+  }
+}
+

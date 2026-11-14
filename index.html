@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MarsWalk Navigator // Gale Crater EVA HUD</title>
+  
+  <!-- Leaflet 1.9.4 CSS from cdnjs -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+  
+  <!-- App Stylesheet: Dark Space HUD Theme -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- HUD Top Bar / Header -->
+  <header class="hud-header">
+    <div class="hud-brand">
+      <div class="hud-indicator active" aria-hidden="true"></div>
+      <div class="brand-text">
+        <h1 class="hud-title">MARSWALK NAVIGATOR</h1>
+        <span class="hud-subtitle">EVA TACTICAL SURFACE DISPLAY // GALE CRATER</span>
+      </div>
+    </div>
+    
+    <!-- Telemetry Readouts -->
+    <div class="hud-telemetry">
+      <div class="telemetry-item">
+        <span class="telemetry-label">REGION</span>
+        <span class="telemetry-val">GALE [4.8°S, 137.35°E]</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">GRID</span>
+        <span class="telemetry-val" id="telemetry-grid">148 × 148 (4.0m)</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">ZOOM</span>
+        <span class="telemetry-val" id="telemetry-zoom">--</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">CURSOR COORDS</span>
+        <span class="telemetry-val" id="telemetry-cursor">-- , --</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Map Container -->
+  <main class="map-viewport">
+    <div id="map" role="region" aria-label="Martian Surface Map"></div>
+
+    <!-- Fallback / Server Warning Alert (shown only if fetch fails, e.g. opened directly via file://) -->
+    <div id="connection-error" class="hud-alert hidden">
+      <div class="alert-header">⚠ DATA LINK OFFLINE</div>
+      <p>Unable to load <code>data/grid.json</code> directly. When testing locally, run a local web server (e.g., <code>python -m http.server 8000</code> or <code>npx serve</code>) because browsers block <code>fetch()</code> requests on the <code>file://</code> protocol.</p>
+    </div>
+
+    <!-- Floating HUD Interface Controls -->
+    <div class="hud-panels">
+      
+      <!-- Panel 1: Layer Controller (Checkbox + Opacity Slider for each layer) -->
+      <section class="hud-card layer-panel" aria-labelledby="layer-panel-title">
+        <div class="card-header">
+          <span class="card-badge">SYS.01</span>
+          <h2 id="layer-panel-title" class="card-title">SURFACE LAYERS</h2>
+        </div>
+        
+        <div class="card-body">
+          <!-- Layer 1: Orthophoto (Base surface photo) -->
+          <div class="layer-control">
+            <div class="layer-toggle-row">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="toggle-ortho" checked>
+                <span class="checkmark"></span>
+                <span class="layer-name">HiRISE Orthophoto</span>
+              </label>
+              <span class="opacity-readout" id="readout-ortho">100%</span>
+            </div>
+            <div class="slider-wrapper">
+              <label for="opacity-ortho" class="visually-hidden">HiRISE Orthophoto Opacity</label>
+              <input type="range" id="opacity-ortho" min="0" max="1" step="0.05" value="1.0" class="hud-slider">
+            </div>
+          </div>
+
+          <!-- Layer 2: Hazard Overlay (Transparent 148x148 slope grid) -->
+          <div class="layer-control">
+            <div class="layer-toggle-row">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="toggle-hazard" checked>
+                <span class="checkmark"></span>
+                <span class="layer-name">Slope Hazard Overlay</span>
+              </label>
+              <span class="opacity-readout" id="readout-hazard">80%</span>
+            </div>
+            <div class="slider-wrapper">
+              <label for="opacity-hazard" class="visually-hidden">Slope Hazard Opacity</label>
+              <input type="range" id="opacity-hazard" min="0" max="1" step="0.05" value="0.80" class="hud-slider">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 2: Slope Classification Legend -->
+      <section class="hud-card legend-panel" aria-labelledby="legend-panel-title">
+        <div class="card-header">
+          <span class="card-badge">SYS.02</span>
+          <h2 id="legend-panel-title" class="card-title">SLOPE HAZARD LEGEND</h2>
+        </div>
+        
+        <div class="card-body">
+          <div class="legend-items">
+            <!-- Caution Item (Yellow) -->
+            <div class="legend-item caution">
+              <span class="swatch caution-swatch" aria-hidden="true"></span>
+              <span class="legend-text" id="legend-caution">Caution: slope above <span class="val" id="caution-deg-val">12</span> degrees</span>
+            </div>
+            
+            <!-- Hazard Item (Red) -->
+            <div class="legend-item hazard">
+              <span class="swatch hazard-swatch" aria-hidden="true"></span>
+              <span class="legend-text" id="legend-hazard">Hazard: slope above <span class="val" id="hazard-deg-val">20</span> degrees</span>
+            </div>
+          </div>
+
+          <!-- Assumption Disclaimer -->
+          <div class="legend-disclaimer">
+            <span class="disclaimer-icon">ℹ</span>
+            <p>Note: These slope limits are mission safety assumptions for planetary surface traversal.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- HUD Footer with Required Credits -->
+  <footer class="hud-footer">
+    <div class="footer-status">
+      <span class="crs-tag">CRS: EPSG:4326 (EQUIRECTANGULAR MARS)</span>
+    </div>
+    <div class="footer-credits">
+      Imagery and elevation: NASA/JPL/University of Arizona; USGS Astrogeology Science Center (Calef and Parker, 2016).
+    </div>
+  </footer>
+
+  <!-- Leaflet 1.9.4 JS from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+  <!-- App script -->
+  <script src="app.js"></script>
+</body>
+</html>
