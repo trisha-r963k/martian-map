@@ -421,6 +421,20 @@ img.hazard-layer,
   padding-left: 2px;
 }
 
+/* Route Comparison Line (Task UI/UX #4) */
+.route-comparison-line {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  line-height: 1.35;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
 /* Route Metrics Bar */
 .route-metrics-bar {
   display: flex;
@@ -1843,10 +1857,147 @@ img.hazard-layer,
   flex-shrink: 0;
 }
 
+/* Card Collapse / Expand Toggle Buttons */
+.btn-toggle-card {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 4px;
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.btn-toggle-card:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--accent-cyan);
+  color: #fff;
+}
+
+.btn-toggle-card svg {
+  transition: transform 0.2s ease;
+}
+
+.directions-card.collapsed .btn-toggle-card svg,
+.route-safety-card.collapsed .btn-toggle-card svg {
+  transform: rotate(-90deg);
+}
+
+.directions-card.collapsed .directions-body,
+.route-safety-card.collapsed .safety-card-body {
+  display: none !important;
+}
+
+.safety-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* First-Time Mission Hint Card (Task UI/UX #5) */
+.onboarding-hint {
+  position: absolute;
+  top: 14px;
+  left: 390px;
+  max-width: 440px;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), 0 0 14px rgba(0, 240, 255, 0.12);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.hint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+}
+
+.hint-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hint-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+}
+
+.btn-dismiss-hint {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s ease;
+}
+
+.btn-dismiss-hint:hover {
+  color: var(--accent-cyan);
+}
+
+.hint-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hint-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.73rem;
+  color: #cbd5e1;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.2);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Mobile HUD Tabs (Desktop hidden) */
+.mobile-hud-tabs {
+  display: none;
+}
+
 /* ==========================================================================
-   MOBILE FRIENDLY (< 700px): Bottom Sheet Transformation
+   MOBILE RESPONSIVE (< 800px): Stacked Panels & Collapsible Tabs (Task UI/UX #6)
    ========================================================================== */
-@media (max-width: 700px) {
+@media (max-width: 800px) {
+  html, body {
+    overflow-x: hidden !important;
+    width: 100%;
+  }
+
   .hud-header {
     height: 36px;
     padding: 0 10px;
@@ -1856,18 +2007,77 @@ img.hazard-layer,
     display: none;
   }
 
-  /* Directions card becomes Google-style mobile bottom sheet */
+  /* Telemetry cursor card on mobile */
+  .cursor-card {
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 0.66rem;
+    z-index: 1025;
+  }
+
+  /* Onboarding Hint on Mobile */
+  .onboarding-hint {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    max-width: none;
+    z-index: 1030;
+  }
+
+  /* Mobile HUD Tabs: Switcher between Directions and Route Safety */
+  .mobile-hud-tabs {
+    display: flex;
+    position: absolute;
+    bottom: calc(38vh);
+    left: 10px;
+    right: 10px;
+    z-index: 1020;
+    background: rgba(7, 12, 22, 0.95);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    gap: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+
+  .mobile-tab-btn {
+    flex: 1;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+
+  .mobile-tab-btn.active {
+    background: rgba(0, 240, 255, 0.2);
+    border-color: var(--accent-cyan);
+    color: #fff;
+    box-shadow: 0 0 8px var(--accent-cyan-dim);
+  }
+
+  /* Stacked Bottom Panels: Directions & Right Column */
   .directions-card {
     top: auto;
+    bottom: 0;
     left: 0;
     right: 0;
-    bottom: 0;
     width: 100%;
     max-width: 100%;
-    border-radius: 16px 16px 0 0;
+    border-radius: 14px 14px 0 0;
     border-bottom: none;
-    max-height: 48vh;
+    max-height: 38vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 1015;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.85);
   }
 
@@ -1875,40 +2085,66 @@ img.hazard-layer,
     padding: 8px 12px;
   }
 
-  /* Telemetry cursor shifts to top-left or top-center */
-  .cursor-card {
-    top: 8px;
-    right: 8px;
-    padding: 6px 10px;
-    font-size: 0.68rem;
-  }
-
-  /* Right HUD Column on mobile */
   .right-hud-column {
-    top: 46px;
-    right: 8px;
-    left: auto;
-    width: 270px;
-    max-height: calc(52vh - 56px);
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 38vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 1015;
+    gap: 8px;
+    display: none; /* Managed by mobile-hud-tabs */
   }
 
-  /* Layers toggle sits above bottom sheet */
+  /* When safety tab is active */
+  .right-hud-column.mobile-tab-active {
+    display: flex !important;
+  }
+
+  .directions-card.mobile-tab-hidden {
+    display: none !important;
+  }
+
+  .route-safety-card,
+  .env-card {
+    border-radius: 14px 14px 0 0;
+    border-bottom: none;
+    width: 100%;
+  }
+
+  /* Collapsed states */
+  .directions-card.collapsed,
+  .route-safety-card.collapsed {
+    max-height: 40px;
+    overflow: hidden;
+  }
+
+  /* Adjust mobile tabs position when active panel is collapsed */
+  body.mobile-collapsed .mobile-hud-tabs {
+    bottom: 44px;
+  }
+
+  /* Positioning interactive controls above 38vh bottom sheet */
   .layers-control-container {
-    bottom: calc(48vh + 10px);
+    bottom: calc(38vh + 44px);
     left: 10px;
+    z-index: 1010;
   }
 
-  /* Zoom controls sit above bottom sheet */
   .map-action-controls {
-    bottom: calc(48vh + 10px);
+    bottom: calc(38vh + 44px);
     right: 10px;
+    z-index: 1010;
   }
 
-  /* Bottom dock (scale + legend) shifts above bottom sheet or compacts */
   .bottom-hud-dock {
-    bottom: calc(48vh + 10px);
-    left: 100px;
+    bottom: calc(38vh + 44px);
+    left: 90px;
+    z-index: 1010;
   }
 
   .legend-card {

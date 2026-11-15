@@ -1,4 +1,4 @@
-/**
+                                                                                                                                                                                                                                                                    /**
  * MarsWalk Navigator - Task 3: Google-Maps-Style Tactical Web Map
  * 
  * Pair-programmed for NASA Space Apps Challenge
@@ -93,7 +93,7 @@ async function initMarsNavigator() {
     }).addTo(map);
 
     // (c) Slope Hazard overlay (overlayPane, z-index 400, crisp pixelated rendering via CSS)
-    const initialHazardOpacity = 0.80;
+    const initialHazardOpacity = 0.45;
     const hazardLayer = L.imageOverlay('assets/hazard.png', mapBounds, {
       opacity: initialHazardOpacity,
       className: 'hazard-layer',
@@ -110,7 +110,7 @@ async function initMarsNavigator() {
       className: 'study-area-rect'
     }).addTo(map);
 
-    studyAreaRect.bindTooltip('Study area: Gale Crater', {
+    studyAreaRect.bindTooltip('STUDY AREA: GALE CRATER', {
       permanent: true,
       direction: 'top',
       offset: [0, -6],
@@ -129,9 +129,11 @@ async function initMarsNavigator() {
     setupCursorTelemetry(map, gridData);
     setupScaleBar(map, gridData);
     setupMapActionButtons(map, mapBounds);
-    const routePlanner = setupRoutePlanner(map, gridData);
+    const routePlanner = setupRoutePlanner(map, gridData, studyAreaRect);
     setupScienceStops(map, gridData, stopsData, routePlanner);
     setupEnvironmentalCard();
+    setupOnboardingHint();
+    setupCollapsiblePanels();
     window.__marsWalkReady = true;
 
   } catch (err) {
@@ -249,7 +251,7 @@ function setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity, 
   tileBoth?.addEventListener('click', () => {
     setActiveTile(tileBoth);
     updateOrtho(1.0, true);
-    updateHazard(0.80, true);
+    updateHazard(0.45, true);
   });
 
   // THEMIS thermal layer listeners
@@ -301,12 +303,12 @@ function setupLegend(cautionDeg, hazardDeg) {
     hazardEl.innerHTML = `Hazard: slope above <span class="val">${hazardDeg}</span> degrees`;
   }
 
-  // Ensure Legend card is collapsed by default
+  // Ensure Legend card is expanded by default (Task UI/UX #7)
   if (legendCard) {
-    legendCard.classList.add('collapsed');
+    legendCard.classList.remove('collapsed');
   }
   if (toggleBtn) {
-    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.setAttribute('aria-expanded', 'true');
   }
 
   // Toggle Collapse / Expand
@@ -463,10 +465,10 @@ function setupMapActionButtons(map, mapBounds) {
  * - 2 map clicks to set start (green) and end (cyan) markers.
  * - Draggable markers with instant route recalculation.
  * - Route line: white casing with bright cyan line & animated dash.
- * - ETA label near end marker.
+ * - ETA label near end marker (offset to avoid covering marker pin).
  * - Swap button reverses start/destination.
  */
-function setupRoutePlanner(map, gridData) {
+function setupRoutePlanner(map, gridData, studyAreaRect) {
   const statusEl = document.getElementById('route-status');
   const startCoordEl = document.getElementById('route-start-coord');
   const endCoordEl = document.getElementById('route-end-coord');
@@ -475,6 +477,7 @@ function setupRoutePlanner(map, gridData) {
   const speedInput = document.getElementById('speed-input');
   const clearBtn = document.getElementById('btn-clear-route');
   const swapBtn = document.getElementById('btn-swap-route');
+  const comparisonEl = document.getElementById('route-comparison-line');
 
   let startCoord = null;
   let endCoord = null;
@@ -484,6 +487,7 @@ function setupRoutePlanner(map, gridData) {
   let corePolyline = null;
   let currentRoute = null;
   let clickCount = 0; // 0 = ready for start, 1 = ready for end, 2 = route displayed
+  let errorPillTimeout = null;
 
   // Ensure polyline draws in a dedicated high-priority pane above all image overlays
   if (!map.getPane('routePane')) {
@@ -516,12 +520,33 @@ function setupRoutePlanner(map, gridData) {
     return slope >= (gridData.hazard_deg || 20);
   }
 
-  function setStatus(text, type = 'normal') {
+  // Error Pill management (Task UI/UX #1: Auto-hide after 3s, clear on valid point)
+  function clearErrorPill() {
+    if (errorPillTimeout) {
+      clearTimeout(errorPillTimeout);
+      errorPillTimeout = null;
+    }
+    if (statusEl) {
+      statusEl.className = 'route-status-pill hidden';
+      statusEl.textContent = '';
+    }
+  }
+
+  function showErrorPill(text, autoHideMs = 3000) {
     if (!statusEl) return;
-    statusEl.className = 'route-status-pill';
-    if (type === 'warning') statusEl.classList.add('warning');
-    if (type === 'success') statusEl.classList.add('success');
+    if (errorPillTimeout) {
+      clearTimeout(errorPillTimeout);
+      errorPillTimeout = null;
+    }
+    statusEl.className = 'route-status-pill warning';
     statusEl.textContent = text;
+    statusEl.classList.remove('hidden');
+
+    if (autoHideMs > 0) {
+      errorPillTimeout = setTimeout(() => {
+        clearErrorPill();
+      }, autoHideMs);
+    }
   }
 
   // Route Optimization Mode (Task: Safest vs Shortest route)
@@ -584,10 +609,72 @@ function setupRoutePlanner(map, gridData) {
     if (distanceEl) distanceEl.textContent = '--';
     if (timeEl) timeEl.textContent = '--';
     document.getElementById('route-safety-card')?.classList.add('hidden');
-    setStatus('Click map or drag pins to set route', 'normal');
+
+    if (comparisonEl) {
+      comparisonEl.classList.add('hidden');
+      comparisonEl.textContent = '';
+    }
+
+    // Restore study area label (Task UI/UX #3)
+    studyAreaRect?.openTooltip();
+
+    // Clear error pill (Task UI/UX #1)
+    clearErrorPill();
   }
 
   clearBtn?.addEventListener('click', clearAll);
+
+  // Analyze route cells for real slope and caution ground stats (Task UI/UX #4)
+  function analyzeRouteStats(path) {
+    const { west, east, north, south } = gridData.bounds;
+    const { rows, cols, cost, caution_deg } = gridData;
+    const cautionThreshold = caution_deg || 12;
+
+    let maxSlope = 0;
+    let cautionCount = 0;
+    const pts = path.map(p => {
+      const col = Math.floor(((p.lon - west) / (east - west)) * cols);
+      const row = Math.floor(((north - p.lat) / (north - south)) * rows);
+      const cR = Math.max(0, Math.min(rows - 1, row));
+      const cC = Math.max(0, Math.min(cols - 1, col));
+      const raw = cost[cR][cC];
+      return raw >= 9999 ? 9999 : Math.max(0, (raw - 1) * 5);
+    });
+
+    pts.forEach(slope => {
+      if (slope > maxSlope) maxSlope = slope;
+      if (slope > cautionThreshold) cautionCount++;
+    });
+
+    const cautionPct = pts.length > 0 ? (cautionCount / pts.length) * 100 : 0;
+    return { maxSlope, cautionPct };
+  }
+
+  // Update Route Comparison Line with real computed values (Task UI/UX #4)
+  function updateRouteComparison(safeRoute, shortRoute) {
+    if (!comparisonEl) return;
+    if (!safeRoute || !shortRoute || !safeRoute.path || !shortRoute.path || !safeRoute.path.length || !shortRoute.path.length) {
+      comparisonEl.classList.add('hidden');
+      comparisonEl.textContent = '';
+      return;
+    }
+
+    const safeStats = analyzeRouteStats(safeRoute.path);
+    const shortStats = analyzeRouteStats(shortRoute.path);
+
+    const diffDist = Math.round(safeRoute.distance_m - shortRoute.distance_m);
+    const slopeDiff = Math.abs(safeStats.maxSlope - shortStats.maxSlope);
+    const cautionDiff = Math.abs(safeStats.cautionPct - shortStats.cautionPct);
+
+    // If both routes are identical in distance, slope and caution
+    if (Math.abs(diffDist) === 0 && slopeDiff < 0.05 && cautionDiff < 0.05) {
+      comparisonEl.textContent = 'Safest and shortest routes are the same here.';
+    } else {
+      const distStr = diffDist >= 0 ? `+${diffDist} m longer` : `${diffDist} m shorter`;
+      comparisonEl.textContent = `Safest: ${distStr}, max slope ${shortStats.maxSlope.toFixed(1)}° -> ${safeStats.maxSlope.toFixed(1)}°, caution ground ${shortStats.cautionPct.toFixed(1)}% -> ${safeStats.cautionPct.toFixed(1)}%`;
+    }
+    comparisonEl.classList.remove('hidden');
+  }
 
   // Recalculates route and updates polyline + tooltip
   function recalculateRoute() {
@@ -596,24 +683,23 @@ function setupRoutePlanner(map, gridData) {
     clearRouteLines();
 
     const speedKmh = speedInput ? (parseFloat(speedInput.value) || 2) : 2;
-    currentRoute = findRoute(gridData, startCoord, endCoord, speedKmh, currentRouteMode);
+
+    // Silently compute BOTH routes for comparison (Task UI/UX #4)
+    const safeRoute = findRoute(gridData, startCoord, endCoord, speedKmh, 'safest');
+    const shortRoute = findRoute(gridData, startCoord, endCoord, speedKmh, 'shortest');
+
+    currentRoute = (currentRouteMode === 'safest') ? safeRoute : shortRoute;
 
     if (currentRoute && currentRoute.path && currentRoute.path.length > 0) {
-      // Evaluate metrics along the route and print to console (Requirement 6)
-      const pts = currentRoute.path.map(p => {
-        const col = Math.floor(((p.lon - gridData.bounds.west) / (gridData.bounds.east - gridData.bounds.west)) * gridData.cols);
-        const row = Math.floor(((gridData.bounds.north - p.lat) / (gridData.bounds.north - gridData.bounds.south)) * gridData.rows);
-        const raw = gridData.cost[row][col];
-        const slope = raw >= 9999 ? 9999 : Math.max(0, (raw - 1) * 5);
-        return { slope };
-      });
-      let mSlope = 0, cCount = 0;
-      pts.forEach(p => {
-        if (p.slope > mSlope) mSlope = p.slope;
-        if (p.slope > (gridData.caution_deg || 12)) cCount++;
-      });
-      const cPct = pts.length > 0 ? (cCount / pts.length) * 100 : 0;
-      console.log(`[MarsWalk Route] Mode: ${currentRouteMode.toUpperCase()} | Distance: ${Math.round(currentRoute.distance_m)}m | Max slope: ${mSlope.toFixed(1)}° | Caution: ${cPct.toFixed(1)}% (${cCount}/${pts.length} cells)`);
+      // Hide study area label while route is shown (Task UI/UX #3)
+      studyAreaRect?.closeTooltip();
+
+      // Clear any active error pill (Task UI/UX #1)
+      clearErrorPill();
+
+      // Evaluate metrics along the active route and print to console
+      const activeStats = analyzeRouteStats(currentRoute.path);
+      console.log(`[MarsWalk Route] Mode: ${currentRouteMode.toUpperCase()} | Distance: ${Math.round(currentRoute.distance_m)}m | Max slope: ${activeStats.maxSlope.toFixed(1)}° | Caution: ${activeStats.cautionPct.toFixed(1)}%`);
 
       const points = [
         [startCoord.lat, startCoord.lon],
@@ -621,7 +707,7 @@ function setupRoutePlanner(map, gridData) {
         [endCoord.lat, endCoord.lon]
       ];
 
-      // Route line: white casing + bright cyan line with animated dash (Requirement 4)
+      // Route line: white casing + bright cyan line with animated dash
       casingPolyline = L.polyline(points, {
         color: '#ffffff',
         weight: 6,
@@ -642,7 +728,7 @@ function setupRoutePlanner(map, gridData) {
         pane: 'routePane'
       }).addTo(map);
 
-      // Label near the end marker showing distance and time (Requirement 4)
+      // Label near the end marker showing distance and time (offset -22px so it never covers the end marker) (Task UI/UX #3)
       if (endMarker) {
         const etaText = `${Math.round(currentRoute.distance_m)} m · ${currentRoute.time_min.toFixed(1)} min`;
         if (endMarker.getTooltip()) {
@@ -651,7 +737,7 @@ function setupRoutePlanner(map, gridData) {
           endMarker.bindTooltip(etaText, {
             permanent: true,
             direction: 'top',
-            offset: [0, -12],
+            offset: [0, -22],
             className: 'route-eta-badge'
           });
         }
@@ -664,13 +750,19 @@ function setupRoutePlanner(map, gridData) {
       // Task 6: Compute route safety metrics and render elevation profile
       updateRouteSafety(gridData, startCoord, endCoord, currentRoute);
 
-      setStatus('Route active. Drag markers to adjust.', 'success');
+      // Update Route Comparison Line under Safest/Shortest toggle (Task UI/UX #4)
+      updateRouteComparison(safeRoute, shortRoute);
+
       clickCount = 2;
     } else {
       if (distanceEl) distanceEl.textContent = '--';
       if (timeEl) timeEl.textContent = '--';
       document.getElementById('route-safety-card')?.classList.add('hidden');
-      setStatus('No safe route found: start or end is on steep blocked ground, or the area is enclosed by steep slopes.', 'warning');
+      if (comparisonEl) {
+        comparisonEl.classList.add('hidden');
+        comparisonEl.textContent = '';
+      }
+      showErrorPill('No safe route found: start or end is on steep blocked ground, or enclosed by steep slopes.', 4000);
       clickCount = 2;
     }
   }
@@ -708,7 +800,7 @@ function setupRoutePlanner(map, gridData) {
     recalculateRoute();
   });
 
-  // Marker creation helper with draggable support (Requirement 3)
+  // Marker creation helper with draggable support
   function createDraggableMarker(lat, lon, isStart) {
     const marker = L.marker([lat, lon], {
       icon: isStart ? startIcon : endIcon,
@@ -722,6 +814,7 @@ function setupRoutePlanner(map, gridData) {
 
     // Recalculate route instantly on drag
     marker.on('drag', (e) => {
+      clearErrorPill();
       const pos = e.latlng;
       if (isStart) {
         startCoord = { lat: pos.lat, lon: pos.lng };
@@ -740,7 +833,7 @@ function setupRoutePlanner(map, gridData) {
     marker.on('dragend', (e) => {
       const pos = e.latlng;
       if (isCellBlocked(pos.lat, pos.lng)) {
-        setStatus(`Warning: ${isStart ? 'Start' : 'Destination'} is on steep blocked ground!`, 'warning');
+        showErrorPill(`Warning: ${isStart ? 'Start' : 'Destination'} is on steep blocked ground!`, 3000);
       }
     });
 
@@ -752,10 +845,10 @@ function setupRoutePlanner(map, gridData) {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
-    // Gale Crater bounds check
+    // Gale Crater bounds check (Task UI/UX #1: Error pill auto-hides after 3 seconds)
     if (lat < gridData.bounds.south || lat > gridData.bounds.north ||
         lon < gridData.bounds.west || lon > gridData.bounds.east) {
-      setStatus('Clicked outside Gale Crater study area. Click "Fly to study area" to return.', 'warning');
+      showErrorPill('Clicked outside Gale Crater study area', 3000);
       return;
     }
 
@@ -765,26 +858,26 @@ function setupRoutePlanner(map, gridData) {
     }
 
     if (clickCount === 0) {
-      // First click: START
+      // First click: START (Task UI/UX #1: Clears error pill on valid start)
+      clearErrorPill();
       startCoord = { lat, lon };
       startMarker = createDraggableMarker(lat, lon, true);
       if (startCoordEl) startCoordEl.textContent = `${lat.toFixed(5)}°, ${lon.toFixed(5)}°`;
 
       if (isCellBlocked(lat, lon)) {
-        setStatus('Warning: Start is on steep blocked ground.', 'warning');
-      } else {
-        setStatus('START set. Click map for DESTINATION.', 'normal');
+        showErrorPill('Warning: Start is on steep blocked ground.', 3000);
       }
       clickCount = 1;
 
     } else if (clickCount === 1) {
-      // Second click: DESTINATION
+      // Second click: DESTINATION (Task UI/UX #1: Clears error pill on valid destination)
+      clearErrorPill();
       endCoord = { lat, lon };
       endMarker = createDraggableMarker(lat, lon, false);
       if (endCoordEl) endCoordEl.textContent = `${lat.toFixed(5)}°, ${lon.toFixed(5)}°`;
 
       if (isCellBlocked(lat, lon)) {
-        setStatus('Warning: Destination is on steep blocked ground.', 'warning');
+        showErrorPill('Warning: Destination is on steep blocked ground.', 3000);
       }
 
       recalculateRoute();
@@ -793,6 +886,7 @@ function setupRoutePlanner(map, gridData) {
 
   // Set start point programmatically (e.g. from Science Stops)
   function setRouteStart(lat, lon, label) {
+    clearErrorPill();
     startCoord = { lat, lon };
     if (!startMarker) {
       startMarker = createDraggableMarker(lat, lon, true);
@@ -811,12 +905,12 @@ function setupRoutePlanner(map, gridData) {
       clickCount = 2;
     } else {
       clickCount = 1;
-      setStatus(`START set: ${label || 'target'}. Select DESTINATION.`, 'normal');
     }
   }
 
   // Set destination point programmatically (e.g. from Science Stops)
   function setRouteDestination(lat, lon, label) {
+    clearErrorPill();
     endCoord = { lat, lon };
     if (!endMarker) {
       endMarker = createDraggableMarker(lat, lon, false);
@@ -834,7 +928,6 @@ function setupRoutePlanner(map, gridData) {
       clickCount = 2;
     } else {
       clickCount = 0;
-      setStatus(`DESTINATION set: ${label || 'target'}. Select START.`, 'normal');
     }
   }
 
@@ -1266,4 +1359,76 @@ function setupEnvironmentalCard() {
       toggleBtn.setAttribute('aria-expanded', !isCollapsed);
     }
   });
+}
+
+/**
+ * Configure First-time Mission Hint Card (Task UI/UX #5)
+ * Remember dismissal in memory only (no localStorage).
+ */
+let hintDismissed = false;
+function setupOnboardingHint() {
+  const hintCard = document.getElementById('onboarding-hint');
+  const btnDismiss = document.getElementById('btn-dismiss-hint');
+
+  if (hintDismissed && hintCard) {
+    hintCard.classList.add('hidden');
+  }
+
+  btnDismiss?.addEventListener('click', () => {
+    hintDismissed = true;
+    hintCard?.classList.add('hidden');
+  });
+}
+
+/**
+ * Configure Collapsible Panels & Mobile Tabs (Task UI/UX #6)
+ * Supports collapsing Directions and Route Safety into tabs or collapsible cards.
+ */
+function setupCollapsiblePanels() {
+  const btnToggleDirections = document.getElementById('btn-toggle-directions');
+  const directionsCard = document.getElementById('directions-card');
+  btnToggleDirections?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (directionsCard) {
+      const isCollapsed = directionsCard.classList.toggle('collapsed');
+      btnToggleDirections.setAttribute('aria-expanded', !isCollapsed);
+      document.body.classList.toggle('mobile-collapsed', isCollapsed);
+    }
+  });
+
+  const btnToggleSafety = document.getElementById('btn-toggle-safety');
+  const safetyCard = document.getElementById('route-safety-card');
+  btnToggleSafety?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (safetyCard) {
+      const isCollapsed = safetyCard.classList.toggle('collapsed');
+      btnToggleSafety.setAttribute('aria-expanded', !isCollapsed);
+    }
+  });
+
+  // Mobile HUD Tabs: Switcher between Directions and Route Safety
+  const tabBtnDirections = document.getElementById('tab-btn-directions');
+  const tabBtnSafety = document.getElementById('tab-btn-safety');
+  const rightColumn = document.getElementById('right-hud-column');
+
+  function switchMobileTab(tab) {
+    if (tab === 'directions') {
+      tabBtnDirections?.classList.add('active');
+      tabBtnDirections?.setAttribute('aria-selected', 'true');
+      tabBtnSafety?.classList.remove('active');
+      tabBtnSafety?.setAttribute('aria-selected', 'false');
+      directionsCard?.classList.remove('mobile-tab-hidden');
+      rightColumn?.classList.remove('mobile-tab-active');
+    } else {
+      tabBtnSafety?.classList.add('active');
+      tabBtnSafety?.setAttribute('aria-selected', 'true');
+      tabBtnDirections?.classList.remove('active');
+      tabBtnDirections?.setAttribute('aria-selected', 'false');
+      directionsCard?.classList.add('mobile-tab-hidden');
+      rightColumn?.classList.add('mobile-tab-active');
+    }
+  }
+
+  tabBtnDirections?.addEventListener('click', () => switchMobileTab('directions'));
+  tabBtnSafety?.addEventListener('click', () => switchMobileTab('safety'));
 }

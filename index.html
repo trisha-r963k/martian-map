@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MarsWalk Navigator // Gale Crater EVA HUD</title>
-  
+
   <!-- Leaflet 1.9.4 CSS from cdnjs -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-  
+
   <!-- App Stylesheet: Dark Space HUD Theme -->
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <!-- Slim Top Bar -->
   <header class="hud-header">
@@ -21,7 +23,7 @@
         <span class="hud-subtitle">GALE CRATER // EVA SURFACE MAP</span>
       </div>
     </div>
-    
+
     <!-- Slim Header Telemetry -->
     <div class="hud-telemetry">
       <div class="telemetry-item">
@@ -42,12 +44,43 @@
     <!-- Fallback / Server Warning Alert -->
     <div id="connection-error" class="hud-alert hidden">
       <div class="alert-header">⚠ DATA LINK OFFLINE</div>
-      <p>Unable to load <code>data/grid.json</code> directly. When testing locally, run a local web server (e.g., <code>python -m http.server 8000</code> or <code>npx serve</code>) because browsers block <code>fetch()</code> requests on the <code>file://</code> protocol.</p>
+      <p>Unable to load <code>data/grid.json</code> directly. When testing locally, run a local web server (e.g.,
+        <code>python -m http.server 8000</code> or <code>npx serve</code>) because browsers block <code>fetch()</code>
+        requests on the <code>file://</code> protocol.</p>
     </div>
 
     <!-- ====================================================================
          FLOATING HUD CARDS (Google Maps Style)
          ==================================================================== -->
+
+    <!-- First-time Mission Hint (Task UI/UX #5) -->
+    <aside class="floating-card onboarding-hint" id="onboarding-hint" aria-label="Quick Start Guide">
+      <div class="hint-header">
+        <div class="hint-title-group">
+          <span class="card-badge">MISSION HINT</span>
+          <span class="hint-title">QUICK START</span>
+        </div>
+        <button type="button" class="btn-dismiss-hint" id="btn-dismiss-hint" title="Dismiss Guide"
+          aria-label="Dismiss Guide">×</button>
+      </div>
+      <div class="hint-steps">
+        <div class="hint-step"><span class="step-num">1</span> Pick Start and Destination (or a science stop)</div>
+        <div class="hint-step"><span class="step-num">2</span> Read Route Safety</div>
+        <div class="hint-step"><span class="step-num">3</span> Switch Safest/Shortest</div>
+      </div>
+    </aside>
+
+    <!-- Mobile HUD Tab Switcher (< 800px) -->
+    <div class="mobile-hud-tabs" id="mobile-hud-tabs" role="tablist" aria-label="HUD Panels">
+      <button type="button" class="mobile-tab-btn active" id="tab-btn-directions" role="tab" aria-selected="true"
+        data-tab="directions">
+        DIRECTIONS
+      </button>
+      <button type="button" class="mobile-tab-btn" id="tab-btn-safety" role="tab" aria-selected="false"
+        data-tab="safety">
+        ROUTE SAFETY
+      </button>
+    </div>
 
     <!-- 1. Top-Left: Rounded Directions Card -->
     <section class="floating-card directions-card" id="directions-card" aria-label="Route Directions">
@@ -56,9 +89,13 @@
           <span class="card-badge">EVA.NAV</span>
           <span class="directions-title">DIRECTIONS</span>
         </div>
-        <div id="route-status" class="route-status-pill">
-          Click map or drag pins to set route
-        </div>
+        <div id="route-status" class="route-status-pill hidden"></div>
+        <button type="button" class="btn-toggle-card" id="btn-toggle-directions" aria-expanded="true"
+          title="Toggle Directions Panel">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
       </div>
 
       <div class="directions-body">
@@ -84,9 +121,10 @@
           </div>
 
           <!-- Swap Waypoints Button -->
-          <button type="button" id="btn-swap-route" class="btn-swap" title="Swap Start and Destination" aria-label="Swap Start and Destination">
+          <button type="button" id="btn-swap-route" class="btn-swap" title="Swap Start and Destination"
+            aria-label="Swap Start and Destination">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
-              <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
+              <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4" />
             </svg>
           </button>
         </div>
@@ -94,13 +132,17 @@
         <!-- Route Optimization Mode Toggle (Safest vs Shortest) -->
         <div class="route-mode-container" id="route-mode-container">
           <div class="route-mode-toggle" role="radiogroup" aria-label="Route Optimization Mode">
-            <button type="button" class="route-mode-btn active" id="btn-mode-safest" role="radio" aria-checked="true" data-mode="safest" title="Avoid steep caution slopes where possible">
+            <button type="button" class="route-mode-btn active" id="btn-mode-safest" role="radio" aria-checked="true"
+              data-mode="safest" title="Avoid steep caution slopes where possible">
               Safest route
             </button>
-            <button type="button" class="route-mode-btn" id="btn-mode-shortest" role="radio" aria-checked="false" data-mode="shortest" title="Minimize distance using linear slope cost">
+            <button type="button" class="route-mode-btn" id="btn-mode-shortest" role="radio" aria-checked="false"
+              data-mode="shortest" title="Minimize distance using linear slope cost">
               Shortest route
             </button>
           </div>
+          <!-- Route Comparison Line (Task UI/UX #4) -->
+          <div id="route-comparison-line" class="route-comparison-line hidden"></div>
           <div class="route-mode-disclaimer">
             * Penalty values are our own assumptions, not official NASA values.
           </div>
@@ -170,7 +212,15 @@
             <span class="card-badge">SAFETY</span>
             <h2 class="safety-title">ROUTE SAFETY</h2>
           </div>
-          <div class="safety-rating-pill" id="safety-rating-pill">--</div>
+          <div class="safety-header-actions">
+            <div class="safety-rating-pill" id="safety-rating-pill">--</div>
+            <button type="button" class="btn-toggle-card" id="btn-toggle-safety" aria-expanded="true"
+              title="Toggle Route Safety Panel">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="safety-card-body">
@@ -227,23 +277,35 @@
             <span class="card-badge">SENSORS</span>
             <h2 class="env-title">Radiation and weather</h2>
           </div>
-          <button type="button" class="btn-toggle-env" id="btn-toggle-env" aria-expanded="true" title="Toggle Radiation and Weather details">
+          <button type="button" class="btn-toggle-env" id="btn-toggle-env" aria-expanded="true"
+            title="Toggle Radiation and Weather details">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"/>
+              <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
         </div>
         <div class="env-card-body" id="env-card-body">
           <p class="env-text">
-            Not included in this demo. Planned data sources: Curiosity RAD (radiation) and REMS (weather) from the NASA Planetary Data System.
+            Not included in this demo. Planned data sources: Curiosity RAD (radiation) and REMS (weather) from the NASA
+            Planetary Data System.
           </p>
           <div class="env-links">
-            <a href="https://pds-ppi.igpp.ucla.edu/data/MSL-M-RAD-3-RDR-V1.0/AAREADME.TXT" target="_blank" rel="noopener noreferrer" class="env-link">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <a href="https://pds-ppi.igpp.ucla.edu/data/MSL-M-RAD-3-RDR-V1.0/AAREADME.TXT" target="_blank"
+              rel="noopener noreferrer" class="env-link">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
               Curiosity RAD (radiation)
             </a>
-            <a href="https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/rems.html" target="_blank" rel="noopener noreferrer" class="env-link">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <a href="https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/rems.html" target="_blank"
+              rel="noopener noreferrer" class="env-link">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
               Curiosity REMS (weather)
             </a>
           </div>
@@ -288,7 +350,8 @@
               </label>
               <span class="tune-readout" id="readout-themis">100%</span>
             </div>
-            <input type="range" id="opacity-themis" min="0" max="1" step="0.05" value="1.0" class="hud-slider" aria-label="THEMIS Thermal Opacity">
+            <input type="range" id="opacity-themis" min="0" max="1" step="0.05" value="1.0" class="hud-slider"
+              aria-label="THEMIS Thermal Opacity">
           </div>
 
           <!-- Ortho Layer -->
@@ -301,7 +364,8 @@
               </label>
               <span class="tune-readout" id="readout-ortho">100%</span>
             </div>
-            <input type="range" id="opacity-ortho" min="0" max="1" step="0.05" value="1.0" class="hud-slider" aria-label="HiRISE Photo Opacity">
+            <input type="range" id="opacity-ortho" min="0" max="1" step="0.05" value="1.0" class="hud-slider"
+              aria-label="HiRISE Photo Opacity">
           </div>
 
           <!-- Hazard Layer -->
@@ -312,19 +376,21 @@
                 <span class="checkmark"></span>
                 <span class="tune-name">Slope Hazard</span>
               </label>
-              <span class="tune-readout" id="readout-hazard">80%</span>
+              <span class="tune-readout" id="readout-hazard">45%</span>
             </div>
-            <input type="range" id="opacity-hazard" min="0" max="1" step="0.05" value="0.80" class="hud-slider" aria-label="Slope Hazard Opacity">
+            <input type="range" id="opacity-hazard" min="0" max="1" step="0.05" value="0.45" class="hud-slider"
+              aria-label="Slope Hazard Opacity">
           </div>
         </div>
       </div>
 
       <!-- Trigger Button -->
-      <button type="button" class="btn-layers-toggle" id="btn-layers-toggle" aria-expanded="false" aria-controls="layers-popup" title="Toggle Surface Layers">
+      <button type="button" class="btn-layers-toggle" id="btn-layers-toggle" aria-expanded="false"
+        aria-controls="layers-popup" title="Toggle Surface Layers">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-          <polyline points="2 17 12 22 22 17"/>
-          <polyline points="2 12 12 17 22 12"/>
+          <polygon points="12 2 2 7 12 12 22 7 12 2" />
+          <polyline points="2 17 12 22 22 17" />
+          <polyline points="2 12 12 17 22 12" />
         </svg>
         <span class="btn-layers-text">Layers</span>
       </button>
@@ -333,26 +399,30 @@
     <!-- 4. Bottom-Right: Google-style Zoom & Center Controls -->
     <div class="map-action-controls" id="map-action-controls">
       <!-- Fly to Study Area Button -->
-      <button type="button" class="action-btn btn-fly-study-area" id="btn-fly-study-area" title="Fly to Study Area: Gale Crater" aria-label="Fly to study area">
+      <button type="button" class="action-btn btn-fly-study-area" id="btn-fly-study-area"
+        title="Fly to Study Area: Gale Crater" aria-label="Fly to study area">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18"/>
-          <path d="M3 12h18"/>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18" />
+          <path d="M3 12h18" />
         </svg>
       </button>
 
-      <button type="button" class="action-btn btn-center-start" id="btn-center-start" title="Center on Start Marker" aria-label="Center on Start">
+      <button type="button" class="action-btn btn-center-start" id="btn-center-start" title="Center on Start Marker"
+        aria-label="Center on Start">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="7"/>
-          <line x1="12" y1="1" x2="12" y2="5"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="1" y1="12" x2="5" y2="12"/>
-          <line x1="19" y1="12" x2="23" y2="12"/>
+          <circle cx="12" cy="12" r="7" />
+          <line x1="12" y1="1" x2="12" y2="5" />
+          <line x1="12" y1="19" x2="12" y2="23" />
+          <line x1="1" y1="12" x2="5" y2="12" />
+          <line x1="19" y1="12" x2="23" y2="12" />
         </svg>
       </button>
       <div class="zoom-btn-group">
-        <button type="button" class="action-btn btn-zoom" id="btn-zoom-in" title="Zoom In" aria-label="Zoom in">+</button>
-        <button type="button" class="action-btn btn-zoom" id="btn-zoom-out" title="Zoom Out" aria-label="Zoom out">−</button>
+        <button type="button" class="action-btn btn-zoom" id="btn-zoom-in" title="Zoom In"
+          aria-label="Zoom in">+</button>
+        <button type="button" class="action-btn btn-zoom" id="btn-zoom-out" title="Zoom Out"
+          aria-label="Zoom out">−</button>
       </div>
     </div>
 
@@ -364,9 +434,10 @@
         <span class="scale-label" id="scale-label">100 m</span>
       </div>
 
-      <!-- Collapsible Legend Card -->
-      <section class="floating-card legend-card collapsed" id="legend-card" aria-label="Slope Legend">
-        <button type="button" class="legend-card-header" id="btn-toggle-legend" aria-expanded="false" aria-controls="legend-card-body">
+      <!-- Collapsible Legend Card (Expanded by default, Task UI/UX #7) -->
+      <section class="floating-card legend-card" id="legend-card" aria-label="Slope Legend">
+        <button type="button" class="legend-card-header" id="btn-toggle-legend" aria-expanded="true"
+          aria-controls="legend-card-body">
           <div class="legend-header-left">
             <span class="card-badge">SYS.02</span>
             <span id="legend-panel-title" class="legend-title">SLOPE HAZARD LEGEND</span>
@@ -379,13 +450,15 @@
             <!-- Caution Item (Yellow) -->
             <div class="legend-item caution">
               <span class="swatch caution-swatch" aria-hidden="true"></span>
-              <span class="legend-text" id="legend-caution">Caution: slope above <span class="val" id="caution-deg-val">12</span> degrees</span>
+              <span class="legend-text" id="legend-caution">Caution: slope above <span class="val"
+                  id="caution-deg-val">12</span> degrees</span>
             </div>
-            
+
             <!-- Hazard Item (Red) -->
             <div class="legend-item hazard">
               <span class="swatch hazard-swatch" aria-hidden="true"></span>
-              <span class="legend-text" id="legend-hazard">Hazard: slope above <span class="val" id="hazard-deg-val">20</span> degrees</span>
+              <span class="legend-text" id="legend-hazard">Hazard: slope above <span class="val"
+                  id="hazard-deg-val">20</span> degrees</span>
             </div>
           </div>
 
@@ -406,7 +479,8 @@
       <span class="crs-tag">CRS: EPSG:4326 (EQUIRECTANGULAR MARS)</span>
     </div>
     <div class="footer-credits">
-      Imagery and elevation: NASA/JPL/University of Arizona; USGS Astrogeology Science Center (Calef and Parker, 2016). Thermal: NASA/JPL/Arizona State University (THEMIS) via NASA Mars Trek.
+      Imagery and elevation: NASA/JPL/University of Arizona; USGS Astrogeology Science Center (Calef and Parker, 2016).
+      Thermal: NASA/JPL/Arizona State University (THEMIS) via NASA Mars Trek.
     </div>
   </footer>
 
@@ -419,4 +493,5 @@
   <!-- App script -->
   <script src="app.js"></script>
 </body>
+
 </html>
