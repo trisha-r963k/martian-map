@@ -61,18 +61,38 @@ async function initMarsNavigator() {
       attributionControl: false,
       zoomControl: false // Handled via Google-style bottom-right HUD buttons
     });
+    window.map = map;
 
     // Initial view: fit precisely to Gale Crater study area
     map.fitBounds(mapBounds, { padding: [0, 0] });
 
-    // 3. Mount Image Overlays (HiRISE Photo & Slope Hazard)
-    // (a) HiRISE Orthophoto base
+    // 3. Mount Surface Layers & NASA Mars Trek Overlays
+    // (a) Custom pane for THEMIS thermal layer so it sits above base map/background and below HiRISE & Hazard overlays
+    map.createPane('thermalPane');
+    map.getPane('thermalPane').style.zIndex = 250; // Above tilePane (200), below overlayPane (400)
+
+    // THEMIS day infrared global mosaic from NASA Mars Trek (verified WMTS layer)
+    const THEMIS_TILE_URL = 'https://trek.nasa.gov/tiles/Mars/EQ/THEMIS_DayIR_ControlledMosaics_100m_v2_oct2018/1.0.0/default/default028mm/{z}/{y}/{x}.png';
+    const initialThemisOpacity = 1.0;
+    const themisLayer = L.tileLayer(THEMIS_TILE_URL, {
+      tms: false,
+      tileSize: 256,
+      minZoom: 0,
+      maxNativeZoom: 9, // Highest native zoom level verified from WMTS GetCapabilities (0 to 9)
+      maxZoom: 22,      // Allows zooming deep into local surface features with Leaflet scaling
+      opacity: initialThemisOpacity,
+      pane: 'thermalPane',
+      attribution: 'Thermal: NASA/JPL/Arizona State University (THEMIS) via NASA Mars Trek'
+    }).addTo(map);
+    window.themisLayer = themisLayer;
+
+    // (b) HiRISE Orthophoto base (overlayPane, z-index 400)
     const orthoLayer = L.imageOverlay('assets/ortho.jpg', mapBounds, {
       opacity: 1.0,
       alt: 'Gale Crater HiRISE Orthophoto'
     }).addTo(map);
 
-    // (b) Slope Hazard overlay (crisp pixelated rendering via CSS)
+    // (c) Slope Hazard overlay (overlayPane, z-index 400, crisp pixelated rendering via CSS)
     const initialHazardOpacity = 0.80;
     const hazardLayer = L.imageOverlay('assets/hazard.png', mapBounds, {
       opacity: initialHazardOpacity,
@@ -103,7 +123,7 @@ async function initMarsNavigator() {
     });
 
     // 5. Setup HUD Components
-    setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity);
+    setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity, themisLayer, initialThemisOpacity);
     setupLegend(caution_deg, hazard_deg);
     setupHeaderTelemetry(map, rows, cols, cell_m);
     setupCursorTelemetry(map, gridData);
@@ -111,6 +131,8 @@ async function initMarsNavigator() {
     setupMapActionButtons(map, mapBounds);
     const routePlanner = setupRoutePlanner(map, gridData);
     setupScienceStops(map, gridData, stopsData, routePlanner);
+    setupEnvironmentalCard();
+    window.__marsWalkReady = true;
 
   } catch (err) {
     console.error('Failed to initialize MarsWalk Navigator:', err);
@@ -123,13 +145,17 @@ async function initMarsNavigator() {
 /**
  * Configure Layers Button & Popup with Thumbnail Tiles & Sliders
  */
-function setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity) {
+function setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity, themisLayer, initialThemisOpacity) {
   const toggleBtn = document.getElementById('btn-layers-toggle');
   const popup = document.getElementById('layers-popup');
 
   const tilePhoto = document.getElementById('tile-photo');
   const tileHazard = document.getElementById('tile-hazard');
   const tileBoth = document.getElementById('tile-both');
+
+  const chkThemis = document.getElementById('toggle-themis');
+  const sliderThemis = document.getElementById('opacity-themis');
+  const readoutThemis = document.getElementById('readout-themis');
 
   const chkOrtho = document.getElementById('toggle-ortho');
   const sliderOrtho = document.getElementById('opacity-ortho');
@@ -167,6 +193,18 @@ function setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity) 
   function setActiveTile(tile) {
     [tilePhoto, tileHazard, tileBoth].forEach(t => t?.classList.remove('active'));
     tile?.classList.add('active');
+  }
+
+  function updateThemis(opacity, checked = true) {
+    if (chkThemis) chkThemis.checked = checked;
+    if (sliderThemis) sliderThemis.value = opacity;
+    if (readoutThemis) readoutThemis.textContent = `${Math.round(opacity * 100)}%`;
+    if (checked && opacity > 0) {
+      if (!map.hasLayer(themisLayer)) map.addLayer(themisLayer);
+      themisLayer.setOpacity(opacity);
+    } else {
+      if (map.hasLayer(themisLayer)) map.removeLayer(themisLayer);
+    }
   }
 
   function updateOrtho(opacity, checked = true) {
@@ -212,6 +250,17 @@ function setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity) 
     setActiveTile(tileBoth);
     updateOrtho(1.0, true);
     updateHazard(0.80, true);
+  });
+
+  // THEMIS thermal layer listeners
+  chkThemis?.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    updateThemis(checked ? parseFloat(sliderThemis.value || 1.0) : 0, checked);
+  });
+
+  sliderThemis?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    updateThemis(val, val > 0);
   });
 
   // Sliders and checkboxes listeners
@@ -461,7 +510,10 @@ function setupRoutePlanner(map, gridData) {
     const col = Math.floor(((lon - gridData.bounds.west) / (gridData.bounds.east - gridData.bounds.west)) * gridData.cols);
     const row = Math.floor(((gridData.bounds.north - lat) / (gridData.bounds.north - gridData.bounds.south)) * gridData.rows);
     if (row < 0 || row >= gridData.rows || col < 0 || col >= gridData.cols) return true;
-    return gridData.cost[row][col] >= 9999;
+    const raw = gridData.cost[row][col];
+    if (raw >= 9999) return true;
+    const slope = (raw - 1) * 5;
+    return slope >= (gridData.hazard_deg || 20);
   }
 
   function setStatus(text, type = 'normal') {
@@ -471,6 +523,31 @@ function setupRoutePlanner(map, gridData) {
     if (type === 'success') statusEl.classList.add('success');
     statusEl.textContent = text;
   }
+
+  // Route Optimization Mode (Task: Safest vs Shortest route)
+  let currentRouteMode = 'safest';
+  const btnModeSafest = document.getElementById('btn-mode-safest');
+  const btnModeShortest = document.getElementById('btn-mode-shortest');
+
+  function setRouteMode(mode) {
+    if (currentRouteMode === mode) return;
+    currentRouteMode = mode;
+    if (mode === 'safest') {
+      btnModeSafest?.classList.add('active');
+      btnModeSafest?.setAttribute('aria-checked', 'true');
+      btnModeShortest?.classList.remove('active');
+      btnModeShortest?.setAttribute('aria-checked', 'false');
+    } else {
+      btnModeShortest?.classList.add('active');
+      btnModeShortest?.setAttribute('aria-checked', 'true');
+      btnModeSafest?.classList.remove('active');
+      btnModeSafest?.setAttribute('aria-checked', 'false');
+    }
+    recalculateRoute();
+  }
+
+  btnModeSafest?.addEventListener('click', () => setRouteMode('safest'));
+  btnModeShortest?.addEventListener('click', () => setRouteMode('shortest'));
 
   function clearRouteLines() {
     if (casingPolyline) {
@@ -506,6 +583,7 @@ function setupRoutePlanner(map, gridData) {
     if (endCoordEl) endCoordEl.textContent = 'Click map to set';
     if (distanceEl) distanceEl.textContent = '--';
     if (timeEl) timeEl.textContent = '--';
+    document.getElementById('route-safety-card')?.classList.add('hidden');
     setStatus('Click map or drag pins to set route', 'normal');
   }
 
@@ -518,9 +596,25 @@ function setupRoutePlanner(map, gridData) {
     clearRouteLines();
 
     const speedKmh = speedInput ? (parseFloat(speedInput.value) || 2) : 2;
-    currentRoute = findRoute(gridData, startCoord, endCoord, speedKmh);
+    currentRoute = findRoute(gridData, startCoord, endCoord, speedKmh, currentRouteMode);
 
     if (currentRoute && currentRoute.path && currentRoute.path.length > 0) {
+      // Evaluate metrics along the route and print to console (Requirement 6)
+      const pts = currentRoute.path.map(p => {
+        const col = Math.floor(((p.lon - gridData.bounds.west) / (gridData.bounds.east - gridData.bounds.west)) * gridData.cols);
+        const row = Math.floor(((gridData.bounds.north - p.lat) / (gridData.bounds.north - gridData.bounds.south)) * gridData.rows);
+        const raw = gridData.cost[row][col];
+        const slope = raw >= 9999 ? 9999 : Math.max(0, (raw - 1) * 5);
+        return { slope };
+      });
+      let mSlope = 0, cCount = 0;
+      pts.forEach(p => {
+        if (p.slope > mSlope) mSlope = p.slope;
+        if (p.slope > (gridData.caution_deg || 12)) cCount++;
+      });
+      const cPct = pts.length > 0 ? (cCount / pts.length) * 100 : 0;
+      console.log(`[MarsWalk Route] Mode: ${currentRouteMode.toUpperCase()} | Distance: ${Math.round(currentRoute.distance_m)}m | Max slope: ${mSlope.toFixed(1)}° | Caution: ${cPct.toFixed(1)}% (${cCount}/${pts.length} cells)`);
+
       const points = [
         [startCoord.lat, startCoord.lon],
         ...currentRoute.path.map(p => [p.lat, p.lon]),
@@ -566,11 +660,16 @@ function setupRoutePlanner(map, gridData) {
 
       if (distanceEl) distanceEl.textContent = `${Math.round(currentRoute.distance_m)} m`;
       if (timeEl) timeEl.textContent = `${currentRoute.time_min.toFixed(1)} min`;
+
+      // Task 6: Compute route safety metrics and render elevation profile
+      updateRouteSafety(gridData, startCoord, endCoord, currentRoute);
+
       setStatus('Route active. Drag markers to adjust.', 'success');
       clickCount = 2;
     } else {
       if (distanceEl) distanceEl.textContent = '--';
       if (timeEl) timeEl.textContent = '--';
+      document.getElementById('route-safety-card')?.classList.add('hidden');
       setStatus('No safe route found: start or end is on steep blocked ground, or the area is enclosed by steep slopes.', 'warning');
       clickCount = 2;
     }
@@ -743,7 +842,9 @@ function setupRoutePlanner(map, gridData) {
     setRouteStart,
     setRouteDestination,
     clearAll,
-    recalculateRoute
+    recalculateRoute,
+    setMode: setRouteMode,
+    getMode: () => currentRouteMode
   };
 }
 
@@ -965,6 +1066,204 @@ function setupScienceStops(map, gridData, stopsData, routePlanner) {
         map.flyTo([stop.lat, stop.lon], Math.max(map.getZoom(), 17), { duration: 0.8 });
         marker.openPopup();
       }
+    }
+  });
+}
+
+/**
+ * Update Route Safety Summary Card (Task 6)
+ * Computes elevation stats (start/end, total climb/descent),
+ * max slope, caution slope percentage, overall rating, and renders SVG elevation profile.
+ */
+function updateRouteSafety(gridData, startCoord, endCoord, currentRoute) {
+  const safetyCard = document.getElementById('route-safety-card');
+  if (!safetyCard || !currentRoute || !currentRoute.path || !currentRoute.path.length) return;
+
+  const { west, east, north, south } = gridData.bounds;
+  const { rows, cols, elev, cost, caution_deg, cell_m } = gridData;
+
+  // Map each route point to its grid cell
+  const points = currentRoute.path.map(p => {
+    const col = Math.floor(((p.lon - west) / (east - west)) * cols);
+    const row = Math.floor(((north - p.lat) / (north - south)) * rows);
+    const cR = Math.max(0, Math.min(rows - 1, row));
+    const cC = Math.max(0, Math.min(cols - 1, col));
+    const cellElev = elev[cR][cC];
+    const cellCost = cost[cR][cC];
+    // Estimate slope: slope is about (cost - 1) * 5 degrees
+    const slope = Math.max(0, (cellCost - 1) * 5);
+    return {
+      lat: p.lat,
+      lon: p.lon,
+      row: cR,
+      col: cC,
+      elev: cellElev,
+      cost: cellCost,
+      slope
+    };
+  });
+
+  const startElev = points[0].elev;
+  const endElev = points[points.length - 1].elev;
+
+  let totalClimb = 0;
+  let totalDescent = 0;
+  let maxSlope = 0;
+  let cautionCount = 0;
+
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i];
+    if (pt.slope > maxSlope) {
+      maxSlope = pt.slope;
+    }
+    if (pt.slope > caution_deg) {
+      cautionCount++;
+    }
+    if (i > 0) {
+      const diff = pt.elev - points[i - 1].elev;
+      if (diff > 0) totalClimb += diff;
+      else if (diff < 0) totalDescent += Math.abs(diff);
+    }
+  }
+
+  const cautionPct = points.length > 0 ? (cautionCount / points.length) * 100 : 0;
+  const isSafe = cautionCount === 0;
+
+  // 1. Update metric displays
+  const startEl = document.getElementById('safety-start-elev');
+  const endEl = document.getElementById('safety-end-elev');
+  const climbEl = document.getElementById('safety-climb');
+  const descentEl = document.getElementById('safety-descent');
+  const maxSlopeEl = document.getElementById('safety-max-slope');
+  const cautionPctEl = document.getElementById('safety-caution-pct');
+  const ratingPill = document.getElementById('safety-rating-pill');
+
+  if (startEl) startEl.textContent = `${Math.round(startElev)} m`;
+  if (endEl) endEl.textContent = `${Math.round(endElev)} m`;
+  if (climbEl) climbEl.textContent = `+${totalClimb.toFixed(1)} m`;
+  if (descentEl) descentEl.textContent = `-${totalDescent.toFixed(1)} m`;
+  if (maxSlopeEl) maxSlopeEl.textContent = `${maxSlope.toFixed(1)}°`;
+  if (cautionPctEl) {
+    cautionPctEl.textContent = `${cautionPct.toFixed(1)}%`;
+    cautionPctEl.style.color = cautionPct > 0 ? '#fcd34d' : '#6ee7b7';
+  }
+
+  // 2. Overall Rating: Green if no part is above caution_deg, Yellow if some part is above it
+  if (ratingPill) {
+    ratingPill.className = 'safety-rating-pill ' + (isSafe ? 'green' : 'yellow');
+    ratingPill.innerHTML = isSafe
+      ? `<span class="rating-dot">●</span> GREEN (SAFE)`
+      : `<span class="rating-dot">▲</span> YELLOW (CAUTION)`;
+  }
+
+  // 3. Distance profile for SVG chart
+  let cumDist = 0;
+  const profile = points.map((pt, i) => {
+    if (i > 0) {
+      const prev = points[i - 1];
+      const dr = Math.abs(pt.row - prev.row);
+      const dc = Math.abs(pt.col - prev.col);
+      const stepUnits = (dr !== 0 && dc !== 0) ? 1.414 : 1.0;
+      cumDist += stepUnits * cell_m;
+    }
+    return { dist: cumDist, elev: pt.elev, slope: pt.slope };
+  });
+
+  const chartWrap = document.getElementById('chart-svg-wrap');
+  if (chartWrap) {
+    chartWrap.innerHTML = renderElevationSvg(profile, currentRoute.distance_m || cumDist);
+  }
+
+  // Reveal Safety Card
+  safetyCard.classList.remove('hidden');
+}
+
+/**
+ * Render pure SVG elevation profile chart (no libraries)
+ * Distance on X-axis, Elevation on Y-axis.
+ */
+function renderElevationSvg(profile, totalDist) {
+  if (!profile || profile.length === 0) return '';
+
+  const w = 300;
+  const h = 95;
+  const padLeft = 42;
+  const padRight = 15;
+  const padTop = 14;
+  const padBottom = 22;
+
+  const chartW = w - padLeft - padRight;
+  const chartH = h - padTop - padBottom;
+
+  let minE = Infinity;
+  let maxE = -Infinity;
+  profile.forEach(p => {
+    if (p.elev < minE) minE = p.elev;
+    if (p.elev > maxE) maxE = p.elev;
+  });
+
+  // Ensure minimum vertical range to avoid divide-by-zero
+  const span = Math.max(2, maxE - minE);
+  const yMin = minE - span * 0.08;
+  const yMax = maxE + span * 0.08;
+  const yRange = yMax - yMin;
+
+  const distMax = totalDist > 0 ? totalDist : (profile[profile.length - 1].dist || 1);
+
+  const pts = profile.map(p => {
+    const x = padLeft + (p.dist / distMax) * chartW;
+    const y = padTop + (1 - (p.elev - yMin) / yRange) * chartH;
+    return { x, y, elev: p.elev };
+  });
+
+  const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = `${lineD} L ${pts[pts.length - 1].x.toFixed(1)} ${padTop + chartH} L ${pts[0].x.toFixed(1)} ${padTop + chartH} Z`;
+
+  const startDot = pts[0];
+  const endDot = pts[pts.length - 1];
+
+  return `
+    <svg viewBox="0 0 ${w} ${h}" class="elevation-chart-svg" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="elevFillGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#00f0ff" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <!-- Gridlines -->
+      <line x1="${padLeft}" y1="${padTop}" x2="${w - padRight}" y2="${padTop}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="2,2"/>
+      <line x1="${padLeft}" y1="${padTop + chartH}" x2="${w - padRight}" y2="${padTop + chartH}" stroke="rgba(255,255,255,0.2)"/>
+      <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + chartH}" stroke="rgba(255,255,255,0.2)"/>
+
+      <!-- Elevation Profile Area & Line -->
+      <path d="${areaD}" fill="url(#elevFillGrad)"/>
+      <path d="${lineD}" fill="none" stroke="#00f0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- Waypoint Dots -->
+      <circle cx="${startDot.x.toFixed(1)}" cy="${startDot.y.toFixed(1)}" r="3.5" fill="#10b981" stroke="#ffffff" stroke-width="1"/>
+      <circle cx="${endDot.x.toFixed(1)}" cy="${endDot.y.toFixed(1)}" r="3.5" fill="#00f0ff" stroke="#ffffff" stroke-width="1"/>
+
+      <!-- Elevation Labels on Y-axis -->
+      <text x="${padLeft - 5}" y="${padTop + 4}" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="end">${Math.round(maxE)}m</text>
+      <text x="${padLeft - 5}" y="${padTop + chartH}" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="end">${Math.round(minE)}m</text>
+
+      <!-- Distance Labels on X-axis -->
+      <text x="${padLeft}" y="${h - 6}" fill="#64748b" font-size="8" font-family="monospace" text-anchor="start">0m</text>
+      <text x="${w - padRight}" y="${h - 6}" fill="#64748b" font-size="8" font-family="monospace" text-anchor="end">${Math.round(distMax)}m</text>
+    </svg>
+  `;
+}
+
+/**
+ * Configure Radiation and Weather Environmental Card (Task 6)
+ */
+function setupEnvironmentalCard() {
+  const toggleBtn = document.getElementById('btn-toggle-env');
+  const envCard = document.getElementById('env-card');
+  toggleBtn?.addEventListener('click', () => {
+    if (envCard) {
+      const isCollapsed = envCard.classList.toggle('collapsed');
+      toggleBtn.setAttribute('aria-expanded', !isCollapsed);
     }
   });
 }

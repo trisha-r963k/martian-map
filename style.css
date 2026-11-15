@@ -368,6 +368,59 @@ img.hazard-layer,
   box-shadow: 0 0 8px var(--accent-cyan-glow);
 }
 
+/* Route Optimization Mode Toggle (Safest vs Shortest) */
+.route-mode-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.route-mode-toggle {
+  display: flex;
+  background: rgba(10, 16, 26, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.route-mode-btn {
+  flex: 1;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.route-mode-btn:hover {
+  color: #fff;
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+.route-mode-btn.active {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--accent-cyan);
+  color: #fff;
+  box-shadow: 0 0 8px var(--accent-cyan-dim);
+}
+
+.route-mode-disclaimer {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  font-style: italic;
+  line-height: 1.25;
+  padding-left: 2px;
+}
+
 /* Route Metrics Bar */
 .route-metrics-bar {
   display: flex;
@@ -555,7 +608,7 @@ img.hazard-layer,
   position: absolute;
   bottom: 48px;
   left: 0;
-  width: 280px;
+  width: 295px;
   background: var(--bg-card);
   border: var(--border-card);
   border-radius: var(--radius-lg);
@@ -1116,14 +1169,15 @@ img.hazard-layer,
 
 /* --- HUD Footer --- */
 .hud-footer {
-  height: 34px;
+  min-height: 34px;
+  height: auto;
   flex-shrink: 0;
   background: var(--bg-hud-header);
   border-top: 1px solid rgba(0, 240, 255, 0.15);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 4px 16px;
   font-size: 0.68rem;
   color: var(--text-dim);
   z-index: 1100;
@@ -1139,9 +1193,7 @@ img.hazard-layer,
 
 .footer-credits {
   text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 /* --- Task 5: Science Stops Section in Directions Card --- */
@@ -1510,6 +1562,288 @@ img.hazard-layer,
 }
 
 /* ==========================================================================
+   TASK 6: ROUTE SAFETY SUMMARY & ENVIRONMENTAL SENSORS
+   ========================================================================== */
+
+/* Right HUD Column Container */
+.right-hud-column {
+  position: absolute;
+  top: 66px;
+  right: 14px;
+  width: 330px;
+  max-width: calc(100% - 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.right-hud-column > section {
+  pointer-events: auto;
+  position: static;
+  width: 100%;
+}
+
+/* Route Safety Card */
+.route-safety-card {
+  transition: all 0.25s ease;
+}
+
+.route-safety-card.hidden {
+  display: none !important;
+}
+
+.safety-card-header {
+  padding: 10px 14px;
+  background: rgba(0, 240, 255, 0.06);
+  border-bottom: var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.safety-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.safety-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+}
+
+.safety-rating-pill {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.safety-rating-pill.green {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+.safety-rating-pill.yellow {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fcd34d;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.safety-card-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Safety Metrics Grid */
+.safety-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  background: rgba(5, 10, 20, 0.6);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: var(--border-subtle);
+}
+
+.safety-metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.s-label {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.s-val {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.climb-val {
+  color: #6ee7b7;
+}
+
+.descent-val {
+  color: #93c5fd;
+}
+
+/* Elevation Chart Container */
+.elevation-chart-container {
+  background: rgba(5, 10, 20, 0.6);
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chart-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--accent-cyan);
+}
+
+.chart-axis-info {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  color: var(--text-dim);
+}
+
+.chart-svg-wrap {
+  width: 100%;
+  height: 95px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.elevation-chart-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.safety-footnote {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-style: italic;
+  line-height: 1.3;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 6px;
+}
+
+/* Radiation and Weather Card */
+.env-card {
+  transition: all 0.25s ease;
+}
+
+.env-card-header {
+  padding: 8px 12px;
+  background: rgba(0, 240, 255, 0.04);
+  border-bottom: var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.env-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.env-title {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+
+.btn-toggle-env {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 4px;
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.btn-toggle-env:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--accent-cyan);
+  color: #fff;
+}
+
+.env-card.collapsed .btn-toggle-env svg {
+  transform: rotate(-90deg);
+}
+
+.env-card.collapsed .env-card-body {
+  display: none !important;
+}
+
+.env-card-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.env-text {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.env-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid rgba(0, 240, 255, 0.1);
+  padding-top: 6px;
+}
+
+.env-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--accent-cyan);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.env-link:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.env-link svg {
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
    MOBILE FRIENDLY (< 700px): Bottom Sheet Transformation
    ========================================================================== */
 @media (max-width: 700px) {
@@ -1547,6 +1881,16 @@ img.hazard-layer,
     right: 8px;
     padding: 6px 10px;
     font-size: 0.68rem;
+  }
+
+  /* Right HUD Column on mobile */
+  .right-hud-column {
+    top: 46px;
+    right: 8px;
+    left: auto;
+    width: 270px;
+    max-height: calc(52vh - 56px);
+    overflow-y: auto;
   }
 
   /* Layers toggle sits above bottom sheet */

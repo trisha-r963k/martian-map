@@ -91,6 +91,21 @@
           </button>
         </div>
 
+        <!-- Route Optimization Mode Toggle (Safest vs Shortest) -->
+        <div class="route-mode-container" id="route-mode-container">
+          <div class="route-mode-toggle" role="radiogroup" aria-label="Route Optimization Mode">
+            <button type="button" class="route-mode-btn active" id="btn-mode-safest" role="radio" aria-checked="true" data-mode="safest" title="Avoid steep caution slopes where possible">
+              Safest route
+            </button>
+            <button type="button" class="route-mode-btn" id="btn-mode-shortest" role="radio" aria-checked="false" data-mode="shortest" title="Minimize distance using linear slope cost">
+              Shortest route
+            </button>
+          </div>
+          <div class="route-mode-disclaimer">
+            * Penalty values are our own assumptions, not official NASA values.
+          </div>
+        </div>
+
         <!-- Route Metrics Summary (visible once route is calculated) -->
         <div class="route-metrics-bar" id="route-metrics-bar">
           <div class="metric-block">
@@ -146,6 +161,96 @@
       </div>
     </section>
 
+    <!-- 2b. Right-Side Tactical Panel: Route Safety & Environmental Sensors (Task 6) -->
+    <div class="right-hud-column" id="right-hud-column">
+      <!-- Route Safety Card (Appears when route is calculated) -->
+      <section class="floating-card route-safety-card hidden" id="route-safety-card" aria-label="Route Safety Summary">
+        <div class="safety-card-header">
+          <div class="safety-title-group">
+            <span class="card-badge">SAFETY</span>
+            <h2 class="safety-title">ROUTE SAFETY</h2>
+          </div>
+          <div class="safety-rating-pill" id="safety-rating-pill">--</div>
+        </div>
+
+        <div class="safety-card-body">
+          <!-- Key Metrics Grid -->
+          <div class="safety-metrics-grid">
+            <div class="safety-metric-item">
+              <span class="s-label">START ELEV</span>
+              <span class="s-val" id="safety-start-elev">--</span>
+            </div>
+            <div class="safety-metric-item">
+              <span class="s-label">END ELEV</span>
+              <span class="s-val" id="safety-end-elev">--</span>
+            </div>
+            <div class="safety-metric-item">
+              <span class="s-label">TOTAL CLIMB</span>
+              <span class="s-val climb-val" id="safety-climb">--</span>
+            </div>
+            <div class="safety-metric-item">
+              <span class="s-label">TOTAL DESCENT</span>
+              <span class="s-val descent-val" id="safety-descent">--</span>
+            </div>
+            <div class="safety-metric-item">
+              <span class="s-label">MAX SLOPE</span>
+              <span class="s-val" id="safety-max-slope">--</span>
+            </div>
+            <div class="safety-metric-item">
+              <span class="s-label">CAUTION GROUND</span>
+              <span class="s-val" id="safety-caution-pct">--</span>
+            </div>
+          </div>
+
+          <!-- Elevation Profile Chart (SVG) -->
+          <div class="elevation-chart-container">
+            <div class="chart-header">
+              <span class="chart-title">ELEVATION PROFILE</span>
+              <span class="chart-axis-info">ELEV (Y) vs DIST (X)</span>
+            </div>
+            <div class="chart-svg-wrap" id="chart-svg-wrap">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Footnote (Requirement 3) -->
+          <div class="safety-footnote">
+            * Slope limits and walking speed are our own assumptions.
+          </div>
+        </div>
+      </section>
+
+      <!-- Radiation and Weather Card (Requirement 2) -->
+      <section class="floating-card env-card" id="env-card" aria-label="Radiation and Weather">
+        <div class="env-card-header">
+          <div class="env-title-group">
+            <span class="card-badge">SENSORS</span>
+            <h2 class="env-title">Radiation and weather</h2>
+          </div>
+          <button type="button" class="btn-toggle-env" id="btn-toggle-env" aria-expanded="true" title="Toggle Radiation and Weather details">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        </div>
+        <div class="env-card-body" id="env-card-body">
+          <p class="env-text">
+            Not included in this demo. Planned data sources: Curiosity RAD (radiation) and REMS (weather) from the NASA Planetary Data System.
+          </p>
+          <div class="env-links">
+            <a href="https://pds-ppi.igpp.ucla.edu/data/MSL-M-RAD-3-RDR-V1.0/AAREADME.TXT" target="_blank" rel="noopener noreferrer" class="env-link">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Curiosity RAD (radiation)
+            </a>
+            <a href="https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/rems.html" target="_blank" rel="noopener noreferrer" class="env-link">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Curiosity REMS (weather)
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <!-- 3. Bottom-Left: Google-style "Layers" Button & Popup -->
     <div class="layers-control-container" id="layers-control-container">
       <!-- Popup Dialog -->
@@ -173,6 +278,19 @@
 
         <!-- Opacity Sliders & Toggles -->
         <div class="layers-fine-tune">
+          <!-- THEMIS Thermal Layer (NASA Mars Trek) -->
+          <div class="layer-tune-row">
+            <div class="tune-label-row">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="toggle-themis" checked>
+                <span class="checkmark"></span>
+                <span class="tune-name">THEMIS thermal (NASA Mars Trek)</span>
+              </label>
+              <span class="tune-readout" id="readout-themis">100%</span>
+            </div>
+            <input type="range" id="opacity-themis" min="0" max="1" step="0.05" value="1.0" class="hud-slider" aria-label="THEMIS Thermal Opacity">
+          </div>
+
           <!-- Ortho Layer -->
           <div class="layer-tune-row">
             <div class="tune-label-row">
@@ -288,7 +406,7 @@
       <span class="crs-tag">CRS: EPSG:4326 (EQUIRECTANGULAR MARS)</span>
     </div>
     <div class="footer-credits">
-      Imagery and elevation: NASA/JPL/University of Arizona; USGS Astrogeology Science Center (Calef and Parker, 2016).
+      Imagery and elevation: NASA/JPL/University of Arizona; USGS Astrogeology Science Center (Calef and Parker, 2016). Thermal: NASA/JPL/Arizona State University (THEMIS) via NASA Mars Trek.
     </div>
   </footer>
 

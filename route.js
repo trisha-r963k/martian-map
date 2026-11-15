@@ -1,8 +1,13 @@
 /**
- * MarsWalk Navigator - Task 2: Route Planner
+ * MarsWalk Navigator - A* EVA Route Planner
  * 
  * Implements A* pathfinding across the Martian surface grid for EVA navigation.
- * Evaluates slope cost and avoids blocked hazard cells (cost >= 9999).
+ * Evaluates slope cost and avoids blocked hazard cells (slope >= hazard_deg).
+ * 
+ * Modes:
+ * - 'safest' (default): Penalizes slopes steepened above flat terrain with quadratic penalty
+ *   and heavy penalty for caution ground (>= caution_deg), while completely avoiding hazard slopes (>= hazard_deg).
+ * - 'shortest': Uses linear slope cost (1 + slope / 5) to minimize distance.
  */
 
 /**
@@ -59,15 +64,22 @@ class MinHeap {
 }
 
 /**
- * Calculates the safest, least-cost route between two points on the Martian surface.
+ * Calculates the safest or shortest route between two points on the Martian surface.
  * 
- * @param {Object} grid - Grid object from data/grid.json (bounds, cell_m, rows, cols, cost)
+ * @param {Object} grid - Grid object from data/grid.json (bounds, cell_m, rows, cols, cost, caution_deg, hazard_deg)
  * @param {Object} start - Starting coordinates { lat, lon } in degrees
  * @param {Object} end - Destination coordinates { lat, lon } in degrees
- * @param {number} [speedKmh=2] - Walking speed in km/h (default 2 km/h)
+ * @param {number|Object} [speedKmh=2] - Walking speed in km/h (default 2 km/h) or options object
+ * @param {string} [mode='safest'] - Optimization mode ('safest' | 'shortest')
  * @returns {Object|null} { path: [{lat, lon}, ...], distance_m, time_min } or null if invalid/blocked
  */
-function findRoute(grid, start, end, speedKmh = 2) {
+function findRoute(grid, start, end, speedKmh = 2, mode = 'safest') {
+  // Support options object as 4th parameter
+  if (typeof speedKmh === 'object' && speedKmh !== null) {
+    mode = speedKmh.mode || 'safest';
+    speedKmh = speedKmh.speedKmh !== undefined ? speedKmh.speedKmh : 2;
+  }
+
   // Validate input parameters
   if (!grid || !grid.bounds || !grid.cost) {
     const reason = "Invalid grid data provided.";
@@ -79,6 +91,9 @@ function findRoute(grid, start, end, speedKmh = 2) {
 
   const { west, south, east, north } = grid.bounds;
   const { rows, cols, cell_m, cost } = grid;
+  // Read caution_deg and hazard_deg from grid.json, do not hardcode them
+  const caution_deg = grid.caution_deg !== undefined ? grid.caution_deg : 12;
+  const hazard_deg = grid.hazard_deg !== undefined ? grid.hazard_deg : 20;
 
   // 1. Convert geographic coordinates {lat, lon} to grid indices [row, col]
   // Row 0 is the NORTH edge (-4.79), bottom is SOUTH (-4.80)
@@ -104,8 +119,39 @@ function findRoute(grid, start, end, speedKmh = 2) {
     return null;
   }
 
-  // 3. Check for steep blocked terrain (cost >= 9999)
-  if (cost[startRow][startCol] >= 9999) {
+  // Helper: compute slope in degrees from grid cost (slopeDeg = (cost - 1) * 5)
+  function getCellSlope(r, c) {
+    const raw = cost[r][c];
+    if (raw >= 9999) return 9999;
+    return (raw - 1) * 5;
+  }
+
+  // Traversal cost per cell
+  function getCellCost(r, c) {
+    const slope = getCellSlope(r, c);
+    if (mode === 'shortest') {
+      // Shortest route mode: uses old cost (1 + slope / 5)
+      if (slope >= hazard_deg) return Infinity;
+      return 1 + slope / 5;
+    }
+
+    // Safest route mode (default):
+    // - slope >= hazard_deg (20): impassable (Infinity). Never route through it.
+    // - slope >= caution_deg (12): cost = 1 + 40 (strong penalty, use only if unavoidable)
+    // - slope < 12: cost = 1 + (slope / 4)^2   (flat ground is cheap, mid-slope grows fast)
+    if (slope >= hazard_deg) return Infinity;
+    if (slope >= caution_deg) return 1 + 40;
+    return 1 + Math.pow(slope / 4, 2);
+  }
+
+  // Helper: test if a cell is impassable
+  function isCellImpassable(r, c) {
+    if (r < 0 || r >= rows || c < 0 || c >= cols) return true;
+    return getCellSlope(r, c) >= hazard_deg;
+  }
+
+  // 3. Check for steep blocked terrain (slope >= hazard_deg)
+  if (isCellImpassable(startRow, startCol)) {
     const reason = "Start point is on steep blocked ground.";
     console.warn(reason);
     findRoute.reason = reason;
@@ -113,7 +159,7 @@ function findRoute(grid, start, end, speedKmh = 2) {
     return null;
   }
 
-  if (cost[endRow][endCol] >= 9999) {
+  if (isCellImpassable(endRow, endCol)) {
     const reason = "End point is on steep blocked ground.";
     console.warn(reason);
     findRoute.reason = reason;
@@ -128,8 +174,8 @@ function findRoute(grid, start, end, speedKmh = 2) {
     return {
       path: [
         {
-          lat: north - (startRow + 0.5) * (north - south) / rows,
-          lon: west + (startCol + 0.5) * (east - west) / cols
+          lat: north - ((startRow + 0.5) * (north - south)) / rows,
+          lon: west + ((startCol + 0.5) * (east - west)) / cols
         }
       ],
       distance_m: 0,
@@ -146,11 +192,11 @@ function findRoute(grid, start, end, speedKmh = 2) {
   const startIdx = startRow * cols + startCol;
   const endIdx = endRow * cols + endCol;
 
-  // Octile distance heuristic for 8-direction grid
+  // Octile distance heuristic for 8-direction grid (minimum step cost >= 1.0)
   function heuristic(r, c) {
     const dr = Math.abs(r - endRow);
     const dc = Math.abs(c - endCol);
-    return Math.max(dr, dc) + 0.414 * Math.min(dr, dc);
+    return Math.max(dr, dc) + 0.41421356 * Math.min(dr, dc);
   }
 
   gScore[startIdx] = 0;
@@ -162,16 +208,16 @@ function findRoute(grid, start, end, speedKmh = 2) {
     f: heuristic(startRow, startCol)
   });
 
-  // 8 movement directions: 4 orthogonal (cost 1.0) and 4 diagonal (cost 1.414)
+  // 8 movement directions: 4 orthogonal (cost 1.0) and 4 diagonal (cost sqrt(2))
   const directions = [
-    [-1, 0, 1.0],   // North
-    [1, 0, 1.0],    // South
-    [0, -1, 1.0],   // West
-    [0, 1, 1.0],    // East
-    [-1, -1, 1.414],// North-West
-    [-1, 1, 1.414], // North-East
-    [1, -1, 1.414], // South-West
-    [1, 1, 1.414]   // South-East
+    [-1, 0, 1.0],         // North
+    [1, 0, 1.0],          // South
+    [0, -1, 1.0],         // West
+    [0, 1, 1.0],          // East
+    [-1, -1, Math.SQRT2], // North-West
+    [-1, 1, Math.SQRT2],  // North-East
+    [1, -1, Math.SQRT2],  // South-West
+    [1, 1, Math.SQRT2]    // South-East
   ];
 
   let pathFound = false;
@@ -188,27 +234,40 @@ function findRoute(grid, start, end, speedKmh = 2) {
     if (closed[current.idx]) continue;
     closed[current.idx] = 1;
 
+    const r = current.r;
+    const c = current.c;
+    const costA = getCellCost(r, c);
+
     for (let i = 0; i < 8; i++) {
       const dr = directions[i][0];
       const dc = directions[i][1];
-      const stepDistanceMultiplier = directions[i][2];
+      const stepLength = directions[i][2];
 
-      const nr = current.r + dr;
-      const nc = current.c + dc;
+      const nr = r + dr;
+      const nc = c + dc;
 
       // Check bounds
       if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
+      // Requirement 3: Diagonal moves - do not allow cutting a corner if either of the two side-adjacent cells is impassable
+      if (dr !== 0 && dc !== 0) {
+        if (isCellImpassable(r + dr, c) || isCellImpassable(r, c + dc)) {
+          continue; // Block corner-cutting through/adjacent to impassable hazard
+        }
+      }
+
+      // Check neighbor cell impassable
+      if (isCellImpassable(nr, nc)) continue;
+
       const neighborIdx = nr * cols + nc;
       if (closed[neighborIdx]) continue;
 
-      // Rule: Never enter a cell with cost 9999 (steep hazard slope)
-      const cellCost = cost[nr][nc];
-      if (cellCost >= 9999) continue;
+      const costB = getCellCost(nr, nc);
+      if (costB === Infinity) continue;
 
-      // Diagonal step is 1.414 times longer and costs more
-      const moveCost = stepDistanceMultiplier * cellCost;
-      const tentativeG = gScore[current.idx] + moveCost;
+      // Requirement 2: Edge cost between neighbouring cells = average of the two cell costs times the step length
+      const edgeCost = ((costA + costB) / 2) * stepLength;
+      const tentativeG = gScore[current.idx] + edgeCost;
 
       if (tentativeG < gScore[neighborIdx]) {
         gScore[neighborIdx] = tentativeG;
@@ -244,19 +303,19 @@ function findRoute(grid, start, end, speedKmh = 2) {
   }
   cellPath.reverse();
 
-  // 7. Calculate Distance (metres) and Walking Time (minutes)
-  // Diagonal steps count as 1.414 cells; orthogonal steps count as 1.0 cells
+  // 7. Calculate Distance (metres) from real path length, not from cost (Requirement 4)
+  // Diagonal steps count as sqrt(2) cells; orthogonal steps count as 1.0 cells
   let totalStepUnits = 0;
   for (let i = 0; i < cellPath.length - 1; i++) {
     const dr = Math.abs(cellPath[i + 1].r - cellPath[i].r);
     const dc = Math.abs(cellPath[i + 1].c - cellPath[i].c);
     const isDiagonal = (dr !== 0 && dc !== 0);
-    totalStepUnits += isDiagonal ? 1.414 : 1.0;
+    totalStepUnits += isDiagonal ? Math.SQRT2 : 1.0;
   }
 
   const distance_m = totalStepUnits * cell_m;
 
-  // time_min = distance_m / (speedKmh * 1000 / 60)
+  // Walking time in minutes = distance_m / (speedKmh * 1000 / 60)
   const speedMetersPerMin = (speedKmh * 1000) / 60;
   const time_min = speedMetersPerMin > 0 ? (distance_m / speedMetersPerMin) : 0;
 
@@ -280,4 +339,3 @@ function findRoute(grid, start, end, speedKmh = 2) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { findRoute };
 }
-
