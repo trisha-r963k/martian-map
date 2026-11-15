@@ -119,6 +119,18 @@
             CLEAR ROUTE
           </button>
         </div>
+
+        <!-- Science Stops List (Task 5) -->
+        <div class="science-stops-section" id="science-stops-section">
+          <div class="science-stops-header">
+            <span class="science-stops-title">SCIENCE STOPS</span>
+            <span class="science-stops-badge" id="science-stops-count">3 SITES</span>
+          </div>
+          <div class="science-stops-list" id="science-stops-list">
+            <!-- Populated dynamically from data/stops.json -->
+          </div>
+          <div class="science-stops-note">Stop positions are approximate and chosen from the photo.</div>
+        </div>
       </div>
     </section>
 
@@ -202,6 +214,15 @@
 
     <!-- 4. Bottom-Right: Google-style Zoom & Center Controls -->
     <div class="map-action-controls" id="map-action-controls">
+      <!-- Fly to Study Area Button -->
+      <button type="button" class="action-btn btn-fly-study-area" id="btn-fly-study-area" title="Fly to Study Area: Gale Crater" aria-label="Fly to study area">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18"/>
+          <path d="M3 12h18"/>
+        </svg>
+      </button>
+
       <button type="button" class="action-btn btn-center-start" id="btn-center-start" title="Center on Start Marker" aria-label="Center on Start">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="7"/>

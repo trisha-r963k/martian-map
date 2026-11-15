@@ -14,20 +14,31 @@
  * - Collapsible legend card and responsive mobile bottom sheet (< 700px)
  */
 
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMarsNavigator);
+} else {
   initMarsNavigator();
-});
+}
 
 async function initMarsNavigator() {
   const alertEl = document.getElementById('connection-error');
 
   try {
-    // 1. Fetch grid metadata
-    const response = await fetch('data/grid.json');
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // 1. Fetch grid metadata and science stops (Task 5)
+    const [gridResponse, stopsResponse] = await Promise.all([
+      fetch('data/grid.json'),
+      fetch('data/stops.json')
+    ]);
+
+    if (!gridResponse.ok) {
+      throw new Error(`HTTP error! status: ${gridResponse.status}`);
     }
-    const gridData = await response.json();
+    const gridData = await gridResponse.json();
+
+    let stopsData = [];
+    if (stopsResponse && stopsResponse.ok) {
+      stopsData = await stopsResponse.json();
+    }
 
     const { bounds, caution_deg, hazard_deg, rows, cols, cell_m } = gridData;
 
@@ -38,26 +49,23 @@ async function initMarsNavigator() {
       [bounds.north, bounds.east]
     ];
 
-    // 2. Initialize Map with EPSG:4326 and smooth zoom
+    // 2. Initialize Map with EPSG:4326 and smooth zoom (Task 4: Whole-Mars context)
     const map = L.map('map', {
       crs: L.CRS.EPSG4326,
       zoomSnap: 0.25,
       zoomDelta: 0.5,
-      maxBoundsViscosity: 1.0, // Hard stop at bounds: users cannot pan out into empty space
+      minZoom: 0, // Allow zooming out to view the entire planet Mars (zoom 0-5)
+      maxZoom: 22, // Deep zoom into local HiRISE surface details
+      maxBounds: [[-90, -180], [90, 180]], // Full planetary bounds
+      maxBoundsViscosity: 1.0, // Hard stop at planetary boundaries
       attributionControl: false,
       zoomControl: false // Handled via Google-style bottom-right HUD buttons
     });
 
-    // Fit map precisely to the Gale Crater region
+    // Initial view: fit precisely to Gale Crater study area
     map.fitBounds(mapBounds, { padding: [0, 0] });
 
-    // Establish zoom constraints: minZoom locked to fit zoom, maxZoom >= 4 levels in
-    const initialZoom = map.getZoom();
-    map.setMinZoom(initialZoom);
-    map.setMaxZoom(initialZoom + 5); // Allows zooming in at least 5 levels deep
-    map.setMaxBounds(mapBounds);
-
-    // 3. Mount Image Overlays
+    // 3. Mount Image Overlays (HiRISE Photo & Slope Hazard)
     // (a) HiRISE Orthophoto base
     const orthoLayer = L.imageOverlay('assets/ortho.jpg', mapBounds, {
       opacity: 1.0,
@@ -72,14 +80,37 @@ async function initMarsNavigator() {
       alt: 'Gale Crater Slope Hazard Map'
     }).addTo(map);
 
-    // 4. Setup HUD Components
+    // 4. Add Study Area Outline Rectangle & Badge (Task 4 requirement)
+    const studyAreaRect = L.rectangle(mapBounds, {
+      color: '#00f0ff',
+      weight: 2,
+      fillColor: '#00f0ff',
+      fillOpacity: 0.05,
+      dashArray: '6, 6',
+      className: 'study-area-rect'
+    }).addTo(map);
+
+    studyAreaRect.bindTooltip('Study area: Gale Crater', {
+      permanent: true,
+      direction: 'top',
+      offset: [0, -6],
+      className: 'study-area-tooltip'
+    });
+
+    // Clicking the study area outline zooms back into Gale Crater
+    studyAreaRect.on('click', () => {
+      map.flyToBounds(mapBounds, { duration: 1.5, padding: [20, 20] });
+    });
+
+    // 5. Setup HUD Components
     setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity);
     setupLegend(caution_deg, hazard_deg);
     setupHeaderTelemetry(map, rows, cols, cell_m);
     setupCursorTelemetry(map, gridData);
     setupScaleBar(map, gridData);
     setupMapActionButtons(map, mapBounds);
-    setupRoutePlanner(map, gridData);
+    const routePlanner = setupRoutePlanner(map, gridData);
+    setupScienceStops(map, gridData, stopsData, routePlanner);
 
   } catch (err) {
     console.error('Failed to initialize MarsWalk Navigator:', err);
@@ -107,6 +138,14 @@ function setupLayersControl(map, orthoLayer, hazardLayer, initialHazardOpacity) 
   const chkHazard = document.getElementById('toggle-hazard');
   const sliderHazard = document.getElementById('opacity-hazard');
   const readoutHazard = document.getElementById('readout-hazard');
+
+  // Ensure Layers popup is closed by default
+  if (popup) {
+    popup.classList.add('hidden');
+  }
+  if (toggleBtn) {
+    toggleBtn.setAttribute('aria-expanded', 'false');
+  }
 
   // Toggle Popup open/close
   if (toggleBtn && popup) {
@@ -213,6 +252,14 @@ function setupLegend(cautionDeg, hazardDeg) {
     hazardEl.innerHTML = `Hazard: slope above <span class="val">${hazardDeg}</span> degrees`;
   }
 
+  // Ensure Legend card is collapsed by default
+  if (legendCard) {
+    legendCard.classList.add('collapsed');
+  }
+  if (toggleBtn) {
+    toggleBtn.setAttribute('aria-expanded', 'false');
+  }
+
   // Toggle Collapse / Expand
   toggleBtn?.addEventListener('click', () => {
     if (legendCard) {
@@ -307,9 +354,12 @@ function setupScaleBar(map, gridData) {
     const deg100 = Math.abs(p1.lng - p0.lng);
     const meters100 = deg100 * metersPerDeg;
 
-    // Pick round metric steps
-    const steps = [500, 200, 100, 50, 20, 10, 5, 2, 1];
-    let chosenMeters = steps[0];
+    // Pick round metric steps (from planetary 5,000 km down to local 1 m)
+    const steps = [
+      5000000, 2000000, 1000000, 500000, 200000, 100000, 50000, 20000, 10000,
+      5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 2, 1
+    ];
+    let chosenMeters = steps[steps.length - 1];
     for (const step of steps) {
       if (step <= meters100) {
         chosenMeters = step;
@@ -317,9 +367,14 @@ function setupScaleBar(map, gridData) {
       }
     }
 
-    const widthPx = Math.max(20, Math.round((chosenMeters / meters100) * 100));
+    const widthPx = Math.max(20, Math.min(160, Math.round((chosenMeters / meters100) * 100)));
     rulerEl.style.width = `${widthPx}px`;
-    labelEl.textContent = `${chosenMeters} m`;
+
+    if (chosenMeters >= 1000) {
+      labelEl.textContent = `${chosenMeters / 1000} km`;
+    } else {
+      labelEl.textContent = `${chosenMeters} m`;
+    }
   }
 
   map.on('zoom', updateScale);
@@ -328,22 +383,28 @@ function setupScaleBar(map, gridData) {
 }
 
 /**
- * Bottom-Right Google-style Action Buttons (Zoom +/- & Center Start)
+ * Bottom-Right Google-style Action Buttons (Zoom +/-, Center Start & Fly to Study Area)
  */
 function setupMapActionButtons(map, mapBounds) {
   const btnZoomIn = document.getElementById('btn-zoom-in');
   const btnZoomOut = document.getElementById('btn-zoom-out');
   const btnCenterStart = document.getElementById('btn-center-start');
+  const btnFlyStudyArea = document.getElementById('btn-fly-study-area');
 
   btnZoomIn?.addEventListener('click', () => map.zoomIn());
   btnZoomOut?.addEventListener('click', () => map.zoomOut());
+
+  // Task 4: Fly smoothly back to Gale Crater study area
+  btnFlyStudyArea?.addEventListener('click', () => {
+    map.flyToBounds(mapBounds, { duration: 1.5, padding: [20, 20] });
+  });
 
   btnCenterStart?.addEventListener('click', () => {
     // If a start marker exists, center on it; otherwise fit to mapBounds
     if (window._currentStartMarker) {
       map.panTo(window._currentStartMarker.getLatLng(), { animate: true });
     } else {
-      map.fitBounds(mapBounds, { padding: [20, 20] });
+      map.flyToBounds(mapBounds, { duration: 1.5, padding: [20, 20] });
     }
   });
 }
@@ -489,12 +550,18 @@ function setupRoutePlanner(map, gridData) {
 
       // Label near the end marker showing distance and time (Requirement 4)
       if (endMarker) {
-        endMarker.bindTooltip(`${Math.round(currentRoute.distance_m)} m · ${currentRoute.time_min.toFixed(1)} min`, {
-          permanent: true,
-          direction: 'top',
-          offset: [0, -12],
-          className: 'route-eta-badge'
-        }).openTooltip();
+        const etaText = `${Math.round(currentRoute.distance_m)} m · ${currentRoute.time_min.toFixed(1)} min`;
+        if (endMarker.getTooltip()) {
+          endMarker.setTooltipContent(etaText);
+        } else {
+          endMarker.bindTooltip(etaText, {
+            permanent: true,
+            direction: 'top',
+            offset: [0, -12],
+            className: 'route-eta-badge'
+          });
+        }
+        endMarker.openTooltip();
       }
 
       if (distanceEl) distanceEl.textContent = `${Math.round(currentRoute.distance_m)} m`;
@@ -589,7 +656,7 @@ function setupRoutePlanner(map, gridData) {
     // Gale Crater bounds check
     if (lat < gridData.bounds.south || lat > gridData.bounds.north ||
         lon < gridData.bounds.west || lon > gridData.bounds.east) {
-      setStatus('Clicked outside Gale Crater mapped area.', 'warning');
+      setStatus('Clicked outside Gale Crater study area. Click "Fly to study area" to return.', 'warning');
       return;
     }
 
@@ -622,6 +689,282 @@ function setupRoutePlanner(map, gridData) {
       }
 
       recalculateRoute();
+    }
+  });
+
+  // Set start point programmatically (e.g. from Science Stops)
+  function setRouteStart(lat, lon, label) {
+    startCoord = { lat, lon };
+    if (!startMarker) {
+      startMarker = createDraggableMarker(lat, lon, true);
+    } else {
+      startMarker.setLatLng([lat, lon]);
+    }
+    window._currentStartMarker = startMarker;
+
+    if (startCoordEl) {
+      startCoordEl.textContent = `${lat.toFixed(5)}°, ${lon.toFixed(5)}°`;
+      if (label) startCoordEl.title = label;
+    }
+
+    if (endCoord) {
+      recalculateRoute();
+      clickCount = 2;
+    } else {
+      clickCount = 1;
+      setStatus(`START set: ${label || 'target'}. Select DESTINATION.`, 'normal');
+    }
+  }
+
+  // Set destination point programmatically (e.g. from Science Stops)
+  function setRouteDestination(lat, lon, label) {
+    endCoord = { lat, lon };
+    if (!endMarker) {
+      endMarker = createDraggableMarker(lat, lon, false);
+    } else {
+      endMarker.setLatLng([lat, lon]);
+    }
+
+    if (endCoordEl) {
+      endCoordEl.textContent = `${lat.toFixed(5)}°, ${lon.toFixed(5)}°`;
+      if (label) endCoordEl.title = label;
+    }
+
+    if (startCoord) {
+      recalculateRoute();
+      clickCount = 2;
+    } else {
+      clickCount = 0;
+      setStatus(`DESTINATION set: ${label || 'target'}. Select START.`, 'normal');
+    }
+  }
+
+  return {
+    setRouteStart,
+    setRouteDestination,
+    clearAll,
+    recalculateRoute
+  };
+}
+
+/**
+ * Setup Science Stops (Task 5)
+ * Loads stops.json, snaps them to nearest traversable cell (<9999 cost)
+ * in the main walkable component, creates numbered HUD markers with interactive
+ * popups, and populates the Science Stops list in the Directions card.
+ */
+function setupScienceStops(map, gridData, stopsData, routePlanner) {
+  if (!stopsData || !stopsData.length) return;
+
+  const { west, east, north, south } = gridData.bounds;
+  const { rows, cols, cost } = gridData;
+
+  // 1. Identify the main traversable connected network of Gale Crater
+  // Find seed cell with lowest terrain cost
+  let seedR = 0, seedC = 0, minCost = Infinity;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (cost[r][c] < minCost) {
+        minCost = cost[r][c];
+        seedR = r;
+        seedC = c;
+      }
+    }
+  }
+
+  const visited = new Uint8Array(rows * cols);
+  const queue = [seedR * cols + seedC];
+  visited[seedR * cols + seedC] = 1;
+  let head = 0;
+
+  const dirs = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],           [0, 1],
+    [1, -1],  [1, 0],  [1, 1]
+  ];
+
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const r = Math.floor(idx / cols);
+    const c = idx % cols;
+
+    for (let i = 0; i < 8; i++) {
+      const nr = r + dirs[i][0];
+      const nc = c + dirs[i][1];
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+        const nidx = nr * cols + nc;
+        if (!visited[nidx] && cost[nr][nc] < 9999) {
+          visited[nidx] = 1;
+          queue.push(nidx);
+        }
+      }
+    }
+  }
+
+  // 2. Snap each stop to the nearest traversable cell so route can always reach it
+  const snappedStops = stopsData.map(stop => {
+    const targetCol = Math.floor(((stop.lon - west) / (east - west)) * cols);
+    const targetRow = Math.floor(((north - stop.lat) / (north - south)) * rows);
+    const targetIdx = targetRow * cols + targetCol;
+
+    // Check if stop's cell is already traversable and connected
+    if (
+      targetRow >= 0 && targetRow < rows &&
+      targetCol >= 0 && targetCol < cols &&
+      cost[targetRow][targetCol] < 9999 &&
+      visited[targetIdx] === 1
+    ) {
+      return { ...stop, snapped: false };
+    }
+
+    // Otherwise find the closest reachable traversable cell in the main network
+    let bestIdx = -1;
+    let minSqDist = Infinity;
+    for (let i = 0; i < queue.length; i++) {
+      const idx = queue[i];
+      const r = Math.floor(idx / cols);
+      const c = idx % cols;
+      const sqDist = (r - targetRow) ** 2 + (c - targetCol) ** 2;
+      if (sqDist < minSqDist) {
+        minSqDist = sqDist;
+        bestIdx = idx;
+      }
+    }
+
+    const bestR = Math.floor(bestIdx / cols);
+    const bestC = bestIdx % cols;
+    const snappedLat = north - (bestR + 0.5) * (north - south) / rows;
+    const snappedLon = west + (bestC + 0.5) * (east - west) / cols;
+
+    return {
+      ...stop,
+      lat: snappedLat,
+      lon: snappedLon,
+      origLat: stop.lat,
+      origLon: stop.lon,
+      snapped: true
+    };
+  });
+
+  const stopMarkers = {};
+
+  // 3. Render numbered markers on the map
+  snappedStops.forEach(stop => {
+    const stopIcon = L.divIcon({
+      className: 'science-stop-marker-wrap',
+      html: `
+        <div class="science-stop-marker" data-stop-id="${stop.id}" title="${stop.name}">
+          <span class="stop-marker-ping"></span>
+          <span class="stop-marker-core">${stop.id}</span>
+        </div>
+      `,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -18]
+    });
+
+    const marker = L.marker([stop.lat, stop.lon], {
+      icon: stopIcon,
+      pane: 'markerPane',
+      title: stop.name
+    }).addTo(map);
+
+    // Popup card in HUD style
+    const popupContent = `
+      <div class="hud-stop-card">
+        <div class="stop-card-header">
+          <span class="stop-card-badge">SCIENCE TARGET 0${stop.id}</span>
+          <h3 class="stop-card-title">${stop.name}</h3>
+        </div>
+        <div class="stop-card-coords">
+          <span class="coord-tag">COORDS:</span>
+          <span class="coord-text">${stop.lat.toFixed(5)}°, ${stop.lon.toFixed(5)}°</span>
+        </div>
+        <p class="stop-card-why">${stop.why}</p>
+        <div class="stop-card-note">Stop positions are approximate and chosen from the photo.</div>
+        <div class="stop-card-actions">
+          <button type="button" class="stop-btn stop-btn-start" data-stop-id="${stop.id}">
+            Set as start
+          </button>
+          <button type="button" class="stop-btn stop-btn-dest" data-stop-id="${stop.id}">
+            Set as destination
+          </button>
+        </div>
+      </div>
+    `;
+
+    marker.bindPopup(popupContent, {
+      className: 'hud-stop-popup',
+      maxWidth: 300,
+      closeButton: true
+    });
+
+    stopMarkers[stop.id] = marker;
+  });
+
+  // 4. Populate Science Stops list inside the Directions card
+  const listEl = document.getElementById('science-stops-list');
+  const countEl = document.getElementById('science-stops-count');
+  if (countEl) countEl.textContent = `${snappedStops.length} SITES`;
+
+  if (listEl) {
+    listEl.innerHTML = snappedStops.map(stop => `
+      <div class="science-stop-item" data-stop-id="${stop.id}" title="Click to inspect ${stop.name}">
+        <div class="stop-item-badge">${stop.id}</div>
+        <div class="stop-item-content">
+          <div class="stop-item-name">${stop.name}</div>
+          <div class="stop-item-desc">${stop.why}</div>
+        </div>
+        <div class="stop-item-actions">
+          <button type="button" class="btn-stop-chip btn-chip-start" data-stop-id="${stop.id}" title="Set ${stop.name} as Start">START</button>
+          <button type="button" class="btn-stop-chip btn-chip-dest" data-stop-id="${stop.id}" title="Set ${stop.name} as Destination">DEST</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 5. Wire button clicks for setting Start and Destination
+  document.addEventListener('click', (e) => {
+    // Start button clicked (either in marker popup or in directions card)
+    const startBtn = e.target.closest('.stop-btn-start, .btn-chip-start');
+    if (startBtn) {
+      e.stopPropagation();
+      const stopId = parseInt(startBtn.dataset.stopId, 10);
+      const stop = snappedStops.find(s => s.id === stopId);
+      if (stop) {
+        routePlanner.setRouteStart(stop.lat, stop.lon, stop.name);
+        if (stopMarkers[stop.id]) {
+          stopMarkers[stop.id].closePopup();
+        }
+      }
+      return;
+    }
+
+    // Destination button clicked (either in marker popup or in directions card)
+    const destBtn = e.target.closest('.stop-btn-dest, .btn-chip-dest');
+    if (destBtn) {
+      e.stopPropagation();
+      const stopId = parseInt(destBtn.dataset.stopId, 10);
+      const stop = snappedStops.find(s => s.id === stopId);
+      if (stop) {
+        routePlanner.setRouteDestination(stop.lat, stop.lon, stop.name);
+        if (stopMarkers[stop.id]) {
+          stopMarkers[stop.id].closePopup();
+        }
+      }
+      return;
+    }
+
+    // Clicking a stop row in the Directions card pans to it and opens its card
+    const stopRow = e.target.closest('.science-stop-item');
+    if (stopRow) {
+      const stopId = parseInt(stopRow.dataset.stopId, 10);
+      const stop = snappedStops.find(s => s.id === stopId);
+      const marker = stopMarkers[stopId];
+      if (stop && marker) {
+        map.flyTo([stop.lat, stop.lon], Math.max(map.getZoom(), 17), { duration: 0.8 });
+        marker.openPopup();
+      }
     }
   });
 }

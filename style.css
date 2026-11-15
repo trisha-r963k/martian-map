@@ -5,7 +5,7 @@
 
 /* --- Custom Properties & Theme Palette --- */
 :root {
-  --bg-space: #050811;
+  --bg-space: #05080f;
   --bg-hud-header: rgba(7, 12, 22, 0.95);
   --bg-card: rgba(10, 16, 28, 0.92);
   --bg-card-hover: rgba(14, 22, 38, 0.96);
@@ -49,7 +49,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: var(--bg-space);
+  background-color: var(--bg-space) !important;
+  background: var(--bg-space) !important;
   color: var(--text-main);
   font-family: var(--font-hud);
   font-size: 14px;
@@ -144,13 +145,29 @@ body {
   width: 100%;
   height: calc(100vh - 40px - 34px);
   overflow: hidden;
-  background-color: #04060c;
+  background-color: #05080f !important;
+  background: #05080f !important;
 }
 
-#map {
+#map,
+.leaflet-container,
+.leaflet-container.leaflet-touch {
   width: 100%;
   height: 100%;
-  background-color: #04060c;
+  background-color: #05080f !important;
+  background: #05080f !important;
+  outline: none;
+}
+
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-map-pane,
+.leaflet-layer {
+  background: transparent !important;
+}
+
+.leaflet-tile {
+  background: transparent !important;
 }
 
 /* Crisp Pixel Rendering for Hazard Overlay (Requirement 3) */
@@ -553,6 +570,7 @@ img.hazard-layer,
 }
 
 .layers-popup.hidden {
+  display: none !important;
   opacity: 0;
   pointer-events: none;
   transform: translateY(10px) scale(0.95);
@@ -886,7 +904,7 @@ img.hazard-layer,
 }
 
 .legend-card.collapsed .legend-card-body {
-  display: none;
+  display: none !important;
 }
 
 .legend-items {
@@ -1032,6 +1050,43 @@ img.hazard-layer,
   border-top-color: rgba(8, 14, 26, 0.94) !important;
 }
 
+/* --- Task 4: Whole-Mars Context & Study Area Styling --- */
+.study-area-rect {
+  cursor: pointer;
+}
+
+.study-area-tooltip {
+  background: rgba(7, 12, 22, 0.94) !important;
+  border: 1px solid var(--accent-cyan) !important;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.45) !important;
+  color: var(--accent-cyan) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.study-area-tooltip::before {
+  border-top-color: var(--accent-cyan) !important;
+}
+
+/* Fly to Study Area Button */
+.btn-fly-study-area svg {
+  transition: transform 0.25s ease, stroke 0.2s ease;
+}
+
+.btn-fly-study-area:hover svg {
+  stroke: var(--accent-cyan);
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 4px var(--accent-cyan));
+}
+
 /* --- Connection Alert --- */
 .hud-alert {
   position: absolute;
@@ -1087,6 +1142,371 @@ img.hazard-layer,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* --- Task 5: Science Stops Section in Directions Card --- */
+.science-stops-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 240, 255, 0.15);
+}
+
+.science-stops-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.science-stops-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-cyan);
+}
+
+.science-stops-badge {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--accent-cyan);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.science-stops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.science-stop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.science-stop-item:hover {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.35);
+  transform: translateX(2px);
+}
+
+.stop-item-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stop-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stop-item-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stop-item-desc {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.stop-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-stop-chip {
+  padding: 3px 6px;
+  font-size: 0.58rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.btn-chip-start {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+}
+
+.btn-chip-start:hover {
+  background: rgba(16, 185, 129, 0.28);
+  color: #fff;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+.btn-chip-dest {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: var(--accent-cyan);
+}
+
+.btn-chip-dest:hover {
+  background: rgba(0, 240, 255, 0.28);
+  color: #fff;
+  box-shadow: 0 0 6px var(--accent-cyan-glow);
+}
+
+.science-stops-note {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 6px;
+  line-height: 1.3;
+}
+
+/* --- Task 5: Map Science Stop Markers --- */
+.science-stop-marker-wrap {
+  background: transparent !important;
+  border: none !important;
+}
+
+.science-stop-marker {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #0f2b3e 0%, #050d18 100%);
+  border: 2px solid #00f0ff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.65), inset 0 0 6px rgba(0, 240, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.science-stop-marker:hover {
+  transform: scale(1.18);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.95), inset 0 0 8px rgba(0, 240, 255, 0.6);
+  border-color: #fff;
+}
+
+.stop-marker-core {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #00f0ff;
+  line-height: 1;
+}
+
+.stop-marker-ping {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.7);
+  animation: stopPing 2.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes stopPing {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* --- Task 5: Custom HUD Stop Popup Card --- */
+.hud-stop-popup .leaflet-popup-content-wrapper {
+  background: rgba(10, 16, 28, 0.96) !important;
+  border: 1px solid rgba(0, 240, 255, 0.45) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.25), 0 12px 36px rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 0 !important;
+  color: var(--text-main) !important;
+}
+
+.hud-stop-popup .leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+  min-width: 240px;
+  max-width: 290px;
+}
+
+.hud-stop-popup .leaflet-popup-tip-container {
+  overflow: visible;
+}
+
+.hud-stop-popup .leaflet-popup-tip {
+  background: rgba(10, 16, 28, 0.96) !important;
+  border: 1px solid rgba(0, 240, 255, 0.45) !important;
+  box-shadow: none !important;
+}
+
+.hud-stop-popup a.leaflet-popup-close-button {
+  color: var(--accent-cyan) !important;
+  padding: 6px 8px !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease;
+}
+
+.hud-stop-popup a.leaflet-popup-close-button:hover {
+  color: #fff !important;
+  transform: scale(1.15);
+}
+
+.hud-stop-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stop-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.18);
+  padding-bottom: 6px;
+}
+
+.stop-card-badge {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  letter-spacing: 0.08em;
+}
+
+.stop-card-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.stop-card-coords {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+}
+
+.coord-tag {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.coord-text {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-cyan);
+}
+
+.stop-card-why {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+}
+
+.stop-card-note {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  font-style: italic;
+  border-left: 2px solid rgba(0, 240, 255, 0.35);
+  padding-left: 6px;
+  margin-top: 2px;
+}
+
+.stop-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.stop-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 8px;
+  font-family: var(--font-hud);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.stop-btn-start {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+}
+
+.stop-btn-start:hover {
+  background: rgba(16, 185, 129, 0.32);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.55);
+}
+
+.stop-btn-dest {
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  color: var(--accent-cyan);
+}
+
+.stop-btn-dest:hover {
+  background: rgba(0, 240, 255, 0.32);
+  color: #fff;
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
 }
 
 /* ==========================================================================

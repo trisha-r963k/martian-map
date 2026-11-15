@@ -25,6 +25,14 @@ MarsWalk Navigator is a tactical web application built for the **NASA Space Apps
   - Draggable Start/Destination markers with instant route recalculation.
   - Animated dual-layer route line: white casing + bright cyan animated dash with endpoint ETA label.
   - Mobile bottom sheet mode for screens under 700px.
+- **Science Stops & Mission Targets (Task 5)**:
+  - 3 geological observation stops in Gale Crater loaded from `data/stops.json`:
+    - **Stop 1: Flat plateau**: Smooth, flat ground for safe staging.
+    - **Stop 2: Layered terrace**: Terrace between escarpments with visible rock layers.
+    - **Stop 3: Escarpment rim**: Edge of steep escarpment with exposed strata.
+  - Automatic snapping to the nearest traversable cell (`cost < 9999`) in the connected network so all stops can always be routed to safely.
+  - Interactive numbered HUD markers on the map opening detail cards with geological context, coordinates, and "Set as start" / "Set as destination" buttons.
+  - In-panel Science Stops list inside the Directions card for 1-click route planning without touching the map.
 - **Mobile Responsive**: Scaled and touch-optimized for tablet and mobile phone screens.
 
 ## Data & Credits

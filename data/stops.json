@@ -1,0 +1,9 @@
+[
+  {"id": 1, "name": "Stop 1: Flat plateau", "lat": -4.7964, "lon": 137.3567,
+   "why": "Smooth, flat ground in the HiRISE photo. A safe staging area to start the walk."},
+  {"id": 2, "name": "Stop 2: Layered terrace", "lat": -4.79403, "lon": 137.35340,
+   "why": "A terrace between escarpments where layered rock is visible in the photo, a possible target for close-up observation."},
+  {"id": 3, "name": "Stop 3: Escarpment rim", "lat": -4.79114, "lon": 137.35918,
+   "why": "The edge of a steep escarpment with exposed rock layers. Approach with caution; the slope map shows steep ground nearby."}
+]
+
